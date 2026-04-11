@@ -14,4 +14,11 @@ export const ROUTES = {
   MY_BOOKINGS: "/my-bookings",
   ABOUT: "/about",
   CONTACT: "/contact",
+  DASHBOARD: "/dashboard",
+  STUDENT_DASHBOARD: "/student-dashboard",
+  STUDENT_PROFILE: "/profile",
+  ADMIN_DASHBOARD: "/admin",
+  ADMIN_PROFILE: "/admin/profile",
+  TECHNICIAN_DASHBOARD: "/technician",
+  UNAUTHORIZED: "/unauthorized",
 };
