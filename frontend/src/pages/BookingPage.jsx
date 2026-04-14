@@ -4,15 +4,32 @@ import MainLayout from "../components/layout/MainLayout";
 import Button from "../components/common/Button";
 import { Calendar, Clock, Users, ArrowLeft, CheckCircle } from "lucide-react";
 import { bookingService } from "../services/bookingService";
+import { resourceService } from "../services/resourceService";
 import { ROUTES } from "../utils/constants";
 import { useAuth } from "../context/AuthContext";
+import { useEffect } from "react";
 
 const BookingPage = () => {
   const { resourceId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
   const { auth } = useAuth();
-  const resource = location.state?.resource || { name: `Resource #${resourceId}`, location: "Campus", category: "Facility" };
+  const [resource, setResource] = useState(location.state?.resource || null);
+
+  useEffect(() => {
+    if (!resource && resourceId) {
+      const fetchResource = async () => {
+        try {
+          const data = await resourceService.getResourceById(resourceId);
+          setResource(data);
+        } catch (err) {
+          console.error("Error fetching resource:", err);
+          setError("Failed to load resource details.");
+        }
+      };
+      fetchResource();
+    }
+  }, [resource, resourceId]);
 
   const [formData, setFormData] = useState({
     members: 1,
@@ -35,6 +52,25 @@ const BookingPage = () => {
     setIsSubmitting(true);
     setError("");
     
+    // Validate members against available spaces
+    if (resource && resource.availableSpaces !== undefined && formData.members > resource.availableSpaces) {
+      setError("invalid: cannot exceed available seats");
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (formData.durationHours >= 10) {
+      setError("invalid: duration hours must be less than 10");
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (formData.durationMinutes > 59) {
+      setError("invalid: duration minutes cannot be greater than 59");
+      setIsSubmitting(false);
+      return;
+    }
+    
     try {
       const payload = {
         resourceId,
@@ -52,7 +88,8 @@ const BookingPage = () => {
       }, 3000);
       
     } catch (err) {
-      setError("Failed to create booking. Please try again.");
+      const backendError = err.response?.data?.message || "Failed to create booking. Please try again.";
+      setError(backendError.includes("invalid") ? "invalid" : backendError);
       console.error(err);
     } finally {
       setIsSubmitting(false);
@@ -103,7 +140,9 @@ const BookingPage = () => {
                 {resource.category}
               </span>
             </div>
-            <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight mb-2 text-black">Book {resource.name}</h1>
+            <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight mb-2 text-black">
+              Book {resource ? resource.name : `Resource #${resourceId}`}
+            </h1>
             <p className="text-blue-900 text-lg flex items-center font-medium">
               <Clock className="w-5 h-5 mr-2 opacity-70" />
               Fill out the details to secure your reservation
@@ -131,8 +170,13 @@ const BookingPage = () => {
                 
                 {/* Number of Members */}
                 <div className="group">
-                  <label className="block text-sm font-extrabold text-black mb-2 uppercase tracking-wide">
-                    Number of Members
+                  <label className="block text-sm font-extrabold text-black mb-2 uppercase tracking-wide flex justify-between">
+                    <span>Number of Members</span>
+                    {resource && resource.availableSpaces !== undefined && (
+                      <span className="text-emerald-600 font-black">
+                        Available: {resource.availableSpaces} seats
+                      </span>
+                    )}
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -142,6 +186,7 @@ const BookingPage = () => {
                       type="number"
                       name="members"
                       min="1"
+                      max={resource ? resource.availableSpaces : 999}
                       required
                       value={formData.members}
                       onChange={handleChange}
@@ -167,7 +212,7 @@ const BookingPage = () => {
                         type="number"
                         name="durationHours"
                         min="0"
-                        max="12"
+                        max="9"
                         required
                         value={formData.durationHours}
                         onChange={handleChange}
@@ -194,7 +239,7 @@ const BookingPage = () => {
                     </div>
                     <span className="font-bold text-slate-400">min</span>
                   </div>
-                   <p className="mt-2 text-xs font-medium text-slate-600">Bookings can be made up to 12 hours max.</p>
+                   <p className="mt-2 text-xs font-medium text-slate-600">Max duration: 9h & 59m.</p>
                 </div>
 
                 {/* Date */}
