@@ -18,6 +18,8 @@ import AdminProfilePage from "../pages/AdminProfilePage";
 import TechnicianDashboardPage from "../pages/TechnicianDashboardPage";
 import UnauthorizedPage from "../pages/UnauthorizedPage";
 import BookingPage from "../pages/BookingPage";
+import IndividualBookingPage from "../pages/IndividualBookingPage";
+import MyIndividualHistoryPage from "../pages/MyIndividualHistoryPage";
 
 const AppRouter = () => {
   return (
@@ -43,6 +45,14 @@ const AppRouter = () => {
         <Route
           path={ROUTES.MY_BOOKINGS}
           element={<ProtectedRoute><MyBookingsPage /></ProtectedRoute>}
+        />
+        <Route
+          path={ROUTES.INDIVIDUAL_BOOKINGS}
+          element={<ProtectedRoute><IndividualBookingPage /></ProtectedRoute>}
+        />
+        <Route
+          path={ROUTES.MY_INDIVIDUAL_HISTORY}
+          element={<ProtectedRoute><MyIndividualHistoryPage /></ProtectedRoute>}
         />
 
         {/* Smart dashboard redirect */}

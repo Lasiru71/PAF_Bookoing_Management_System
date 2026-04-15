@@ -18,6 +18,7 @@ const navSections = [
   {
     header: "BOOKINGS", items: [
       { icon: Plus, label: "New Booking", route: ROUTES.RESOURCES },
+      { icon: CheckCircle, label: "My Individual Bookings", route: ROUTES.MY_INDIVIDUAL_HISTORY },
       { icon: CalendarDays, label: "My History", route: ROUTES.MY_BOOKINGS }
     ]
   },

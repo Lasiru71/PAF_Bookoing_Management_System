@@ -30,11 +30,13 @@ public class BookingController {
 
     @PatchMapping("/{id}/status")
     @PreAuthorize("hasAnyRole('USER', 'TECHNICIAN', 'ADMIN', 'STAFF')")
-    public Booking updateBookingStatus(@PathVariable String id, @RequestBody Map<String, String> statusUpdate) {
-        String status = statusUpdate.get("status");
-        System.out.println(">>> REQUEST ARRIVED: updateBookingStatus for ID=" + id + " Status=" + status);
+    public Booking updateBookingStatus(@PathVariable String id, @RequestBody Map<String, String> update) {
+        String status = update.get("status");
+        String locationSuggestions = update.get("locationSuggestions");
+        String adminNote = update.get("adminNote");
+        System.out.println(">>> REQUEST ARRIVED: updateBookingStatus for ID=" + id + " Status=" + status + " Location=" + locationSuggestions + " Note=" + adminNote);
         try {
-            return bookingService.updateBookingStatus(id, status);
+            return bookingService.updateBookingStatus(id, status, locationSuggestions, adminNote);
         } catch (Exception e) {
             System.err.println(">>> ERROR in updateBookingStatus: " + e.getMessage());
             throw e;
@@ -52,5 +54,11 @@ public class BookingController {
     @PreAuthorize("hasAnyRole('USER', 'ADMIN', 'STAFF')")
     public Booking updateBookingMessage(@PathVariable String id, @RequestBody Map<String, String> messageUpdate) {
         return bookingService.updateBookingMessage(id, messageUpdate.get("message"));
+    }
+
+    @PatchMapping("/{id}/selection")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN', 'STAFF')")
+    public Booking updateStudentSelection(@PathVariable String id, @RequestBody Map<String, String> selectionUpdate) {
+        return bookingService.updateStudentSelection(id, selectionUpdate.get("selection"));
     }
 }
