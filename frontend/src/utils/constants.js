@@ -13,6 +13,8 @@ export const ROUTES = {
   RESOURCES: "/resources",
   BOOKING: "/booking/:resourceId",
   MY_BOOKINGS: "/my-bookings",
+  INDIVIDUAL_BOOKINGS: "/individual-bookings",
+  MY_INDIVIDUAL_HISTORY: "/my-individual-bookings",
   ABOUT: "/about",
   CONTACT: "/contact",
   DASHBOARD: "/dashboard",

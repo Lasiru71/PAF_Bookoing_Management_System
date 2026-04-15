@@ -1,7 +1,8 @@
-// AdminDashboardPage — vibrant colorful stat cards on clean white background
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
 import {
   Users, BookOpen, BarChart3, Settings, Shield,
   Trash2, Edit, LogOut, Bell, Search, TrendingUp, Filter,
@@ -13,8 +14,6 @@ import { ROUTES } from "../utils/constants";
 import { bookingService } from "../services/bookingService";
 import { resourceService } from "../services/resourceService";
 import axiosInstance from "../services/axiosInstance";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 
 const stats = [
   {
@@ -65,11 +64,13 @@ const avatarGradient = {
 const navSections = [
   { header: "MAIN", items: [{ icon: Home, label: "Overview" }] },
   { header: "DIRECTORY", items: [{ icon: Users, label: "Users" }] },
-  { header: "ACADEMIC", items: [
+  {
+    header: "ACADEMIC", items: [
       { icon: BookOpen, label: "Bookings" },
       { icon: MessageSquare, label: "Message Box" },
-      { icon: Database, label: "Space Management" }
-    ] 
+      { icon: Database, label: "Space Management" },
+      { icon: Smartphone, label: "Individual Bookings" }
+    ]
   },
   { header: "BUSINESS", items: [{ icon: FileText, label: "Reports" }] },
   {
@@ -428,8 +429,11 @@ function BookingsPanel({ onGenerateReport }) {
   useEffect(() => {
     bookingService.getAllBookings()
       .then(res => {
+        // Filter out individual bookings for this view
+        const standardBookings = res.filter(b => b.resourceId !== "INDIVIDUAL");
+        
         // Sort: newest submission first
-        const sorted = [...res].sort((a, b) => {
+        const sorted = [...standardBookings].sort((a, b) => {
           if (a.createdAt && b.createdAt) {
             return new Date(b.createdAt) - new Date(a.createdAt);
           }
@@ -488,7 +492,7 @@ function BookingsPanel({ onGenerateReport }) {
           <h2 className="text-2xl font-black text-slate-900">Academic Bookings</h2>
           <p className="text-sm text-slate-500">Facility reservations grouped by schedule</p>
         </div>
-        <button 
+        <button
           onClick={() => onGenerateReport(bookings)}
           className="flex items-center gap-2 px-6 py-3 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-xl shadow-lg transition-all active:scale-95 group"
         >
@@ -523,7 +527,7 @@ function BookingsPanel({ onGenerateReport }) {
                     </p>
                   </div>
                 </div>
-                <button 
+                <button
                   onClick={() => onGenerateReport(groupedBookings[date])}
                   className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 hover:border-blue-500 hover:text-blue-600 text-slate-600 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all shadow-sm hover:shadow-md"
                 >
@@ -569,21 +573,21 @@ function BookingsPanel({ onGenerateReport }) {
                           <div className="flex justify-end items-center gap-2">
                             {(booking.status === "PENDING" || !booking.status) && (
                               <>
-                                <button 
-                                  onClick={() => handleStatusChange(booking.id, "APPROVED")} 
+                                <button
+                                  onClick={() => handleStatusChange(booking.id, "APPROVED")}
                                   className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-black uppercase tracking-wider rounded-xl shadow-sm transition-all shadow-emerald-200"
                                 >
                                   Approve
                                 </button>
-                                <button 
-                                  onClick={() => handleStatusChange(booking.id, "REJECTED")} 
+                                <button
+                                  onClick={() => handleStatusChange(booking.id, "REJECTED")}
                                   className="px-4 py-2 bg-slate-100 hover:bg-red-50 hover:text-red-600 text-slate-600 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all"
                                 >
                                   Reject
                                 </button>
                               </>
                             )}
-                            <button 
+                            <button
                               onClick={() => handleDelete(booking.id)}
                               className="p-2 text-slate-300 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
                               title="Delete Booking"
@@ -637,7 +641,7 @@ function MessageBoxPanel() {
         <MessageSquare className="h-5 w-5 text-blue-600" />
         <h3 className="text-lg font-black text-slate-900">Message Box</h3>
       </div>
-      
+
       {loading ? (
         <div className="p-10 text-center text-slate-500 font-medium bg-white rounded-2xl border border-slate-200">
           Loading messages...
@@ -772,21 +776,21 @@ function SpaceManagementPanel() {
 
   const handleReset = (res) => {
     if (window.confirm(`Reset ${res.name} to full capacity (${res.capacity})? This will also set status to Available.`)) {
-      axiosInstance.patch(`/api/resources/${res.id}`, { 
-        availableSpaces: res.capacity, 
-        status: "Available" 
+      axiosInstance.patch(`/api/resources/${res.id}`, {
+        availableSpaces: res.capacity,
+        status: "Available"
       })
-      .then(() => {
-        setResources(prev => prev.map(r => r.id === res.id ? { 
-          ...r, 
-          availableSpaces: res.capacity, 
-          status: "Available" 
-        } : r));
-      })
-      .catch(err => {
-        console.error("Reset failed", err);
-        alert("Reset failed. Please try again.");
-      });
+        .then(() => {
+          setResources(prev => prev.map(r => r.id === res.id ? {
+            ...r,
+            availableSpaces: res.capacity,
+            status: "Available"
+          } : r));
+        })
+        .catch(err => {
+          console.error("Reset failed", err);
+          alert("Reset failed. Please try again.");
+        });
     }
   };
 
@@ -797,7 +801,7 @@ function SpaceManagementPanel() {
           <h2 className="text-2xl font-black text-slate-900">Space Management</h2>
           <p className="text-sm text-slate-500">Manually control facility availability and seat counts</p>
         </div>
-        <button 
+        <button
           onClick={fetchResources}
           className="p-2.5 rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors shadow-sm"
         >
@@ -848,19 +852,19 @@ function SpaceManagementPanel() {
                   <td className="px-8 py-5">
                     {updatingId === res.id ? (
                       <div className="flex items-center gap-2">
-                        <input 
+                        <input
                           type="number"
                           value={editValue}
                           onChange={(e) => setEditValue(e.target.value)}
                           className="w-20 px-3 py-1.5 text-xs font-bold border-2 border-blue-500 rounded-lg outline-none"
                         />
-                        <button 
+                        <button
                           onClick={() => saveUpdate(res.id)}
                           className="p-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
                         >
                           <Save className="h-3.5 w-3.5" />
                         </button>
-                        <button 
+                        <button
                           onClick={() => setUpdatingId(null)}
                           className="p-1.5 bg-slate-100 text-slate-400 rounded-lg hover:text-slate-600 transition"
                         >
@@ -869,37 +873,37 @@ function SpaceManagementPanel() {
                       </div>
                     ) : (
                       <div className="flex items-center gap-4">
-                        <button 
+                        <button
                           onClick={() => quickAdjust(res, -1)}
                           disabled={res.availableSpaces === 0}
                           className="p-1 px-1.5 bg-slate-100 text-slate-500 rounded-lg hover:bg-red-50 hover:text-red-500 disabled:opacity-30 transition-colors"
                         >
                           <Minus className="h-3 w-3" />
                         </button>
-                        
+
                         <div className="flex flex-col items-center">
                           <span className={`text-sm font-black min-w-[2ch] text-center ${res.availableSpaces === 0 ? 'text-red-500' : 'text-emerald-600'}`}>
                             {res.availableSpaces}
                           </span>
                         </div>
 
-                        <button 
+                        <button
                           onClick={() => quickAdjust(res, 1)}
                           disabled={res.availableSpaces >= res.capacity}
                           className="p-1 px-1.5 bg-slate-100 text-slate-500 rounded-lg hover:bg-emerald-50 hover:text-emerald-500 disabled:opacity-30 transition-colors"
                         >
                           <Plus className="h-3 w-3" />
                         </button>
-                        
+
                         <div className="h-1.5 w-16 bg-slate-100 rounded-full overflow-hidden hidden xl:block ml-2">
-                          <div 
+                          <div
                             className={`h-full transition-all duration-500 ${res.availableSpaces === 0 ? 'bg-red-400' : 'bg-emerald-400'}`}
                             style={{ width: `${(res.availableSpaces / res.capacity) * 100}%` }}
                           />
                         </div>
 
                         {/* Reset Button */}
-                        <button 
+                        <button
                           onClick={() => handleReset(res)}
                           className="ml-4 p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition-all group flex items-center gap-1.5 border border-blue-100"
                           title="Reset to Full Capacity"
@@ -911,8 +915,8 @@ function SpaceManagementPanel() {
                     )}
                   </td>
                   <td className="px-8 py-5">
-                    <select 
-                      value={res.status} 
+                    <select
+                      value={res.status}
                       onChange={(e) => handleStatusChange(res.id, e.target.value)}
                       className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider border outline-none cursor-pointer transition-all ${getStatusStyle(res.status)}`}
                     >
@@ -923,7 +927,7 @@ function SpaceManagementPanel() {
                   </td>
                   <td className="px-8 py-5 text-right">
                     {updatingId !== res.id && (
-                      <button 
+                      <button
                         onClick={() => handleUpdate(res.id, res.availableSpaces)}
                         className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
                       >
@@ -940,6 +944,368 @@ function SpaceManagementPanel() {
     </main>
   );
 }
+
+// ─── Individual Bookings Panel ─────────────────────────────
+// ─── Individual Bookings Panel ─────────────────────────────
+const BUILDINGS = {
+  "Main Building": ["Floor 01", "Floor 02", "Floor 03", "Floor 04"],
+  "New Building": ["Floor 03", "Floor 05", "Floor 08", "Floor 09"]
+};
+
+function IndividualBookingsPanel() {
+  const [bookings, setBookings] = useState([]);
+  const [loading, setLoading] = useState(true);
+  // mapping: { bookingId: { [building]: { floors: [], facilities: [] } } }
+  const [selectedMapping, setSelectedMapping] = useState({});
+  // adminNotes: { bookingId: string }
+  const [adminNotes, setAdminNotes] = useState({});
+
+  useEffect(() => {
+    bookingService.getAllBookings()
+      .then(res => {
+        const individual = res.filter(b => b.resourceId === "INDIVIDUAL");
+        const sorted = [...individual].sort((a, b) => {
+          if (a.createdAt && b.createdAt) return new Date(b.createdAt) - new Date(a.createdAt);
+          return (b.id || "").localeCompare(a.id || "");
+        });
+        setBookings(sorted);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error("Failed to fetch individual bookings", err);
+        setLoading(false);
+      });
+  }, []);
+
+  const getFacilities = (resourceName) => {
+    if (!resourceName) return [];
+    return resourceName.replace("Individual Session - ", "").split(", ");
+  };
+
+  const handleToggle = (bookingId, building, type, value) => {
+    setSelectedMapping(prev => {
+      const bookingData = prev[bookingId] || {};
+      const buildingData = bookingData[building] || { floors: [], facilities: [] };
+      const currentList = buildingData[type] || [];
+      
+      const updatedList = currentList.includes(value)
+        ? currentList.filter(v => v !== value)
+        : [...currentList, value];
+      
+      return {
+        ...prev,
+        [bookingId]: {
+          ...bookingData,
+          [building]: { ...buildingData, [type]: updatedList }
+        }
+      };
+    });
+  };
+
+  const handleStatusChange = (id, newStatus) => {
+    if (newStatus === "APPROVED") {
+        const mapping = selectedMapping[id] || {};
+        const suggestionParts = [];
+        const note = adminNotes[id] || "";
+        
+        Object.entries(mapping).forEach(([building, data]) => {
+          if (data.floors?.length > 0 || data.facilities?.length > 0) {
+            let part = `${building}`;
+            if (data.floors?.length > 0) part += ` (${data.floors.join(", ")})`;
+            if (data.facilities?.length > 0) part += ` - Facilities: ${data.facilities.join(", ")}`;
+            suggestionParts.push(part);
+          }
+        });
+
+        const finalString = suggestionParts.join("; ");
+        
+        if (!finalString) {
+            alert("Please select at least one location and facility group before approving.");
+            return;
+        }
+
+        bookingService.updateBookingStatus(id, newStatus, finalString, note)
+          .then(updatedBooking => {
+            setBookings(prev => prev.map(b => b.id === id ? { ...b, status: updatedBooking.status, locationSuggestions: updatedBooking.locationSuggestions, adminNote: updatedBooking.adminNote } : b));
+          })
+          .catch(err => console.error("Update failed", err));
+    } else {
+        bookingService.updateBookingStatus(id, newStatus)
+          .then(updatedBooking => {
+            setBookings(prev => prev.map(b => b.id === id ? { ...b, status: updatedBooking.status } : b));
+          })
+          .catch(err => console.error("Update failed", err));
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (window.confirm("Delete this individual booking request?")) {
+      try {
+        await bookingService.deleteBooking(id);
+        setBookings(prev => prev.filter(b => b.id !== id));
+      } catch (err) {
+        console.error("Deletion failed", err);
+        alert("Failed to delete.");
+      }
+    }
+  };
+
+  const handleGenerateReport = () => {
+    const doc = new jsPDF("l", "mm", "a4");
+    const timestamp = new Date().toLocaleString();
+
+    // Header
+    doc.setFontSize(18);
+    doc.setTextColor(15, 23, 42); // slate-900
+    doc.text("CampusReserve - Individual Bookings Report", 14, 20);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text(`Generated on: ${timestamp}`, 14, 28);
+    doc.text(`Total Records: ${bookings.length}`, 14, 33);
+
+    const tableData = bookings.map(b => [
+        b.id,
+        b.userEmail,
+        getFacilities(b.resourceName).join(", "),
+        b.studentSelection || "Not Selected",
+        b.locationSuggestions || "None",
+        b.adminNote || "N/A",
+        `${b.bookingDate} @ ${b.bookingTime}`,
+        b.status
+    ]);
+
+    autoTable(doc, {
+      startY: 40,
+      head: [["ID", "Student", "Facilities", "Final Choice", "Suggestions", "Admin Note", "Schedule", "Status"]],
+      body: tableData,
+      theme: "striped",
+      headStyles: { fillColor: [30, 41, 59], fontSize: 9, fontStyle: "bold" }, // slate-800
+      bodyStyles: { fontSize: 8 },
+      columnStyles: {
+        0: { cellWidth: 20 },
+        1: { cellWidth: 35 },
+        2: { cellWidth: 30 },
+        3: { cellWidth: 30 },
+        4: { cellWidth: 40 },
+        5: { cellWidth: 35 },
+        6: { cellWidth: 30 },
+        7: { cellWidth: 20 }
+      }
+    });
+
+    doc.save(`Individual_Bookings_Report_${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
+  const getStatusColor = (status) => {
+    if (status === "APPROVED") return "bg-emerald-100 text-emerald-700 border-emerald-200";
+    if (status === "REJECTED") return "bg-red-100 text-red-700 border-red-200";
+    return "bg-amber-100 text-amber-700 border-amber-200";
+  };
+
+  return (
+    <main className="flex-1 overflow-y-auto bg-slate-50 p-8">
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h2 className="text-2xl font-black text-slate-900">Individual Bookings</h2>
+          <p className="text-sm text-slate-500">Custom mapping of facilities to physical campus locations</p>
+        </div>
+        <button 
+          onClick={handleGenerateReport}
+          className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-black uppercase tracking-widest rounded-xl shadow-lg shadow-slate-200 transition-all hover:scale-[1.02] active:scale-95"
+        >
+          <FileText className="h-4 w-4" /> Download PDF Report
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="bg-white rounded-3xl border border-slate-200 p-20 text-center text-slate-500 font-medium">
+          Loading individual requests...
+        </div>
+      ) : bookings.length === 0 ? (
+        <div className="bg-white rounded-3xl border border-dashed border-slate-200 p-20 text-center shadow-sm">
+          <Smartphone className="h-12 w-12 text-slate-300 mx-auto mb-4" />
+          <p className="text-lg font-bold text-slate-500">No Individual Requests</p>
+        </div>
+      ) : (
+        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-200 text-[10px] uppercase font-black tracking-widest text-slate-400">
+                <th className="px-6 py-4">Requester</th>
+                <th className="px-6 py-4">Requested Support</th>
+                <th className="px-6 py-4">Details</th>
+                <th className="px-6 py-4">Target Location Selection</th>
+                <th className="px-6 py-4">Status</th>
+                <th className="px-6 py-4 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {bookings.map(booking => {
+                const requestedFacilities = getFacilities(booking.resourceName);
+                const bookingMapping = selectedMapping[booking.id] || {};
+                
+                return (
+                  <tr key={booking.id} className="hover:bg-slate-50/50 transition-colors group">
+                    <td className="px-6 py-4">
+                      <p className="text-sm font-bold text-slate-800">{booking.userEmail}</p>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">{booking.members} members</p>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex flex-wrap gap-1">
+                        {requestedFacilities.map((tag, idx) => (
+                          <span key={idx} className="bg-blue-50 text-blue-600 text-[9px] font-black uppercase px-2 py-0.5 rounded border border-blue-100">
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 max-w-xs">
+                      <p className="text-xs text-slate-600 font-medium line-clamp-2 italic">
+                        {booking.message || "No special requests"}
+                      </p>
+                      <p className="text-[10px] font-bold text-slate-400 mt-1">{booking.bookingDate} @ {booking.bookingTime}</p>
+                    </td>
+                    <td className="px-6 py-4 min-w-[320px]">
+                      {booking.status === "APPROVED" ? (
+                        <div className="space-y-2">
+                          {booking.studentSelection ? (
+                            <div className="bg-emerald-500 text-white rounded-xl p-3 shadow-lg shadow-emerald-500/20 border border-emerald-400 border-dashed animate-in zoom-in-95 duration-300">
+                               <p className="text-[8px] font-black uppercase tracking-widest mb-1 flex items-center gap-1">
+                                 <CheckCircle className="h-2 w-2" /> Student Final Selection
+                               </p>
+                               <p className="text-[11px] font-black">{booking.studentSelection}</p>
+                            </div>
+                          ) : (
+                            <div className="space-y-1">
+                              <p className="text-[8px] font-black text-slate-400 uppercase mb-1 tracking-widest">Awaiting student approval for:</p>
+                              {booking.locationSuggestions?.split("; ").map((loc, idx) => (
+                                <div key={idx} className="bg-blue-50 text-blue-700 text-[9px] font-bold px-2 py-1 rounded border border-blue-100">
+                                  {loc}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          
+                          {booking.adminNote && (
+                            <div className="mt-2 p-2 bg-slate-50 border border-slate-100 rounded-lg">
+                              <p className="text-[8px] font-black text-slate-400 uppercase mb-1 flex items-center gap-1">
+                                <Mail className="h-2 w-2" /> Administrator Note
+                              </p>
+                              <p className="text-[9px] text-slate-600 italic leading-tight">"{booking.adminNote}"</p>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          {Object.entries(BUILDINGS).map(([building, floors]) => (
+                            <div key={building} className="bg-slate-50/50 p-2 rounded-xl border border-slate-100">
+                              <p className="text-[10px] font-black text-slate-900 uppercase tracking-tighter mb-2 border-b border-slate-200 pb-1">{building}</p>
+                              
+                              <div className="space-y-2">
+                                <div>
+                                  <p className="text-[8px] font-black text-slate-400 uppercase mb-1">Floors</p>
+                                  <div className="flex flex-wrap gap-1">
+                                    {floors.map(floor => {
+                                      const isSelected = (bookingMapping[building]?.floors || []).includes(floor);
+                                      return (
+                                        <button
+                                          key={floor}
+                                          onClick={() => handleToggle(booking.id, building, "floors", floor)}
+                                          className={`px-2 py-0.5 text-[8px] font-bold rounded border transition-all ${
+                                            isSelected ? "bg-blue-600 border-blue-600 text-white shadow-sm" : "bg-white border-slate-200 text-slate-500 hover:text-blue-600"
+                                          }`}
+                                        >
+                                          {floor}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                                
+                                <div>
+                                  <p className="text-[8px] font-black text-slate-400 uppercase mb-1">Assign Facilities</p>
+                                  <div className="flex flex-wrap gap-1">
+                                    {requestedFacilities.map(fac => {
+                                      const isSelected = (bookingMapping[building]?.facilities || []).includes(fac);
+                                      return (
+                                        <button
+                                          key={fac}
+                                          onClick={() => handleToggle(booking.id, building, "facilities", fac)}
+                                          className={`px-2 py-0.5 text-[8px] font-bold rounded border transition-all ${
+                                            isSelected ? "bg-emerald-500 border-emerald-500 text-white shadow-sm" : "bg-white border-slate-200 text-slate-500 hover:text-emerald-600"
+                                          }`}
+                                        >
+                                          {fac}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+
+                          {/* Inbox Section */}
+                          <div className="pt-2">
+                             <div className="flex items-center gap-2 mb-1.5">
+                               <div className="h-4 w-4 rounded-md bg-blue-100 flex items-center justify-center">
+                                 <Mail className="h-2 w-2 text-blue-600" />
+                               </div>
+                               <p className="text-[9px] font-black text-slate-500 uppercase tracking-wider">Admin Inbox / Note to Student</p>
+                             </div>
+                             <textarea
+                               value={adminNotes[booking.id] || ""}
+                               onChange={(e) => setAdminNotes(prev => ({ ...prev, [booking.id]: e.target.value }))}
+                               placeholder="Type specific instructions or details for this request..."
+                               className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-[10px] text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all min-h-[60px] resize-none"
+                             />
+                          </div>
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${getStatusColor(booking.status)}`}>
+                        {booking.status || "PENDING"}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex justify-end items-center gap-2">
+                         {(booking.status === "PENDING" || !booking.status) && (
+                          <>
+                            <button
+                              onClick={() => handleStatusChange(booking.id, "APPROVED")}
+                              className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-[9px] font-black uppercase tracking-wider rounded-lg shadow-sm transition-all"
+                            >
+                              Submit
+                            </button>
+                            <button
+                              onClick={() => handleStatusChange(booking.id, "REJECTED")}
+                              className="px-3 py-1.5 bg-slate-100 hover:bg-red-50 hover:text-red-600 text-slate-600 text-[9px] font-black uppercase tracking-wider rounded-lg transition-all"
+                            >
+                              Reject
+                            </button>
+                          </>
+                        )}
+                        <button
+                          onClick={() => handleDelete(booking.id)}
+                          className="p-1.5 text-slate-300 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </main>
+  );
+}
+
 
 export default function AdminDashboardPage() {
   const { auth, logoutUser } = useAuth();
@@ -1095,7 +1461,7 @@ export default function AdminDashboardPage() {
     setToast("Preparing your report... ⏳");
     // If we have custom data (from BookingsPanel), use it. Otherwise, fetch fresh data.
     let bookingsToReport = customData;
-    
+
     if (!bookingsToReport) {
       try {
         const response = await bookingService.getAllBookings();
@@ -1109,7 +1475,7 @@ export default function AdminDashboardPage() {
     }
 
     const doc = new jsPDF();
-    
+
     // Header
     doc.setFillColor(37, 99, 235);
     doc.rect(0, 0, 210, 40, "F");
@@ -1120,13 +1486,13 @@ export default function AdminDashboardPage() {
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
     doc.text(`Generated on ${new Date().toLocaleString()}`, 105, 30, { align: "center" });
-    
+
     // Overview Section
     doc.setTextColor(30, 41, 59);
     doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
     doc.text("Booking Overview", 14, 55);
-    
+
     doc.setFontSize(11);
     doc.setFont("helvetica", "normal");
     doc.text(`Total Records in Report: ${bookingsToReport.length}`, 14, 65);
@@ -1212,7 +1578,7 @@ export default function AdminDashboardPage() {
       >
         {/* Brand */}
         <div className="px-6 pt-7 pb-5 border-b border-white/[0.07]">
-          <div 
+          <div
             onClick={() => navigate("/")}
             className="flex items-center gap-3 cursor-pointer group transition-all"
           >
@@ -1316,6 +1682,7 @@ export default function AdminDashboardPage() {
         {activeNav === "Bookings" && <BookingsPanel onGenerateReport={generateBookingPDF} />}
         {activeNav === "Message Box" && <MessageBoxPanel />}
         {activeNav === "Space Management" && <SpaceManagementPanel />}
+        {activeNav === "Individual Bookings" && <IndividualBookingsPanel />}
 
         {(activeNav === "Overview" || activeNav === "Users" || activeNav === "Analytics" || activeNav === "Reports") && (
           <main className={`flex-1 overflow-y-auto px-8 py-7 bg-slate-50 ${(activeNav === "Overview" || activeNav === "Analytics" || activeNav === "Reports") ? "space-y-7" : ""} animate-in fade-in slide-in-from-bottom-2 duration-500`}>

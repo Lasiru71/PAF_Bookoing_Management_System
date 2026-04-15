@@ -29,12 +29,17 @@ public class BookingService {
             booking.setStatus("PENDING");
         }
         
-        // Fetch resource and validate capacity
-        Resource resource = resourceRepository.findById(booking.getResourceId())
-                .orElseThrow(() -> new RuntimeException("Resource not found"));
+        boolean isIndividual = "INDIVIDUAL".equals(booking.getResourceId());
+        Resource resource = null;
 
-        if (booking.getMembers() > resource.getAvailableSpaces()) {
-            throw new IllegalArgumentException("invalid: cannot exceed available seats");
+        if (!isIndividual) {
+            // Fetch resource and validate capacity for standard bookings
+            resource = resourceRepository.findById(booking.getResourceId())
+                    .orElseThrow(() -> new RuntimeException("Resource not found"));
+
+            if (booking.getMembers() > resource.getAvailableSpaces()) {
+                throw new IllegalArgumentException("invalid: cannot exceed available seats");
+            }
         }
 
         if (booking.getDurationHours() >= 10) {
@@ -64,37 +69,50 @@ public class BookingService {
             throw new IllegalArgumentException("invalid: date or time format is incorrect");
         }
 
-        // Automated seat deduction logic
-        try {
-            LocalDate bDate = LocalDate.parse(booking.getBookingDate());
-            if (bDate.equals(LocalDate.now())) {
-                // Deduct seats immediately if booking is for today
+        if (!isIndividual && resource != null) {
+            // Automated seat deduction logic for standard bookings
+            try {
+                LocalDate bDate = LocalDate.parse(booking.getBookingDate());
+                if (bDate.equals(LocalDate.now())) {
+                    // Deduct seats immediately if booking is for today
+                    int newSpaces = resource.getAvailableSpaces() - booking.getMembers();
+                    resource.setAvailableSpaces(newSpaces);
+                    if (newSpaces == 0) resource.setStatus("Booked");
+                    resourceRepository.save(resource);
+                    booking.setSeatsDeducted(true);
+                } else {
+                    // Do not deduct seats for future bookings yet
+                    booking.setSeatsDeducted(false);
+                }
+            } catch (Exception e) {
+                // Fallback
                 int newSpaces = resource.getAvailableSpaces() - booking.getMembers();
                 resource.setAvailableSpaces(newSpaces);
                 if (newSpaces == 0) resource.setStatus("Booked");
                 resourceRepository.save(resource);
                 booking.setSeatsDeducted(true);
-            } else {
-                // Do not deduct seats for future bookings yet
-                booking.setSeatsDeducted(false);
             }
-        } catch (Exception e) {
-            // Fallback: if date parsing fails, just deduct (though previous validation should catch this)
-            int newSpaces = resource.getAvailableSpaces() - booking.getMembers();
-            resource.setAvailableSpaces(newSpaces);
-            if (newSpaces == 0) resource.setStatus("Booked");
-            resourceRepository.save(resource);
-            booking.setSeatsDeducted(true);
+        } else {
+            // Virtual bookings don't deduct physical seats
+            booking.setSeatsDeducted(false);
         }
 
         return bookingRepository.save(booking);
     }
 
-    public Booking updateBookingStatus(String id, String status) {
+    public Booking updateBookingStatus(String id, String status, String locationSuggestions, String adminNote) {
         return bookingRepository.findById(id).map(booking -> {
             String oldStatus = booking.getStatus();
             System.out.println("DEBUG: Transitioning booking " + id + " from " + oldStatus + " to " + status);
             booking.setStatus(status);
+            
+            if (locationSuggestions != null) {
+                booking.setLocationSuggestions(locationSuggestions);
+            }
+            
+            if (adminNote != null) {
+                booking.setAdminNote(adminNote);
+            }
             
             // If rejected or cancelled, restore seats
             if (("REJECTED".equals(status) || "CANCELLED".equals(status)) && (!"REJECTED".equals(oldStatus) && !"CANCELLED".equals(oldStatus))) {
@@ -133,6 +151,13 @@ public class BookingService {
     public Booking updateBookingMessage(String id, String message) {
         return bookingRepository.findById(id).map(booking -> {
             booking.setMessage(message);
+            return bookingRepository.save(booking);
+        }).orElseThrow(() -> new RuntimeException("Booking not found"));
+    }
+
+    public Booking updateStudentSelection(String id, String selection) {
+        return bookingRepository.findById(id).map(booking -> {
+            booking.setStudentSelection(selection);
             return bookingRepository.save(booking);
         }).orElseThrow(() -> new RuntimeException("Booking not found"));
     }

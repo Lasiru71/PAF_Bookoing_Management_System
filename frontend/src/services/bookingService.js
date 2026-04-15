@@ -14,14 +14,22 @@ export const bookingService = {
   },
 
   // Update booking status
-  updateBookingStatus: async (id, status) => {
-    const response = await axiosInstance.patch(`/api/bookings/${id}/status`, { status });
+  updateBookingStatus: async (id, status, locationSuggestions = null, adminNote = null) => {
+    const payload = { status };
+    if (locationSuggestions) payload.locationSuggestions = locationSuggestions;
+    if (adminNote) payload.adminNote = adminNote;
+    const response = await axiosInstance.patch(`/api/bookings/${id}/status`, payload);
     return response.data;
   },
 
   // Update booking message
   updateBookingMessage: async (id, message) => {
     const response = await axiosInstance.patch(`/api/bookings/${id}/message`, { message });
+    return response.data;
+  },
+
+  updateStudentSelection: async (id, selection) => {
+    const response = await axiosInstance.patch(`/api/bookings/${id}/selection`, { selection });
     return response.data;
   },
   

@@ -20,6 +20,9 @@ public class Booking {
     private String message; 
     private boolean seatsDeducted = false;
     private LocalDateTime createdAt = LocalDateTime.now();
+    private String locationSuggestions;
+    private String adminNote;
+    private String studentSelection;
 
     public Booking() {}
 
@@ -58,6 +61,15 @@ public class Booking {
 
     public String getMessage() { return message; }
     public void setMessage(String message) { this.message = message; }
+
+    public String getLocationSuggestions() { return locationSuggestions; }
+    public void setLocationSuggestions(String locationSuggestions) { this.locationSuggestions = locationSuggestions; }
+
+    public String getAdminNote() { return adminNote; }
+    public void setAdminNote(String adminNote) { this.adminNote = adminNote; }
+
+    public String getStudentSelection() { return studentSelection; }
+    public void setStudentSelection(String studentSelection) { this.studentSelection = studentSelection; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
