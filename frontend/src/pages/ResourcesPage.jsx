@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { facilityService } from "../services/facilityService";
 import MainLayout from "../components/layout/MainLayout";
 import { 
   Search, 
@@ -11,68 +12,18 @@ import {
 } from "lucide-react";
 import Button from "../components/common/Button";
 
-const resources = [
-  {
-    id: 1,
-    name: "Grand Auditorium",
-    category: "L Halls",
-    capacity: 450,
-    location: "Block A, Level 2",
-    status: "Available",
-    image: "https://images.unsplash.com/photo-1517487881594-2787fef5ebf7?auto=format&fit=crop&q=80&w=800"
-  },
-  {
-    id: 2,
-    name: "Advanced Robotics Lab",
-    category: "Labs",
-    capacity: 25,
-    location: "Engineering Wing",
-    status: "Booked",
-    image: "https://images.unsplash.com/photo-1581092334651-ddf26d9a1930?auto=format&fit=crop&q=80&w=800"
-  },
-  {
-    id: 3,
-    name: "Student Lounge B",
-    category: "Common",
-    capacity: 60,
-    location: "Student Hub",
-    status: "Available",
-    image: "https://images.unsplash.com/photo-1527529482837-4698179dc6ce?auto=format&fit=crop&q=80&w=800"
-  },
-  {
-    id: 4,
-    name: "Conference Room 104",
-    category: "Meeting",
-    capacity: 12,
-    location: "Commerce Building",
-    status: "Maintenance",
-    image: "https://images.unsplash.com/photo-1431540015161-0bf868a2d407?auto=format&fit=crop&q=80&w=800"
-  },
-  {
-    id: 5,
-    name: "Organic Chem Lab",
-    category: "Labs",
-    capacity: 30,
-    location: "Science Block S3",
-    status: "Available",
-    image: "https://images.unsplash.com/photo-1532187863486-abf9d39d998e?auto=format&fit=crop&q=80&w=800"
-  },
-  {
-    id: 6,
-    name: "Mini Theater 2",
-    category: "L Halls",
-    capacity: 120,
-    location: "Arts Pavilion",
-    status: "Available",
-    image: "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&q=80&w=800"
-  }
-];
+// Resources are now fetched from facilityService
 
 const categories = ["All", "L Halls", "Labs", "Meeting", "Common"];
 
 const ResourcesPage = () => {
   const [activeCategory, setActiveCategory] = useState("All");
   const [search, setSearch] = useState("");
+  const [resources, setResources] = useState([]);
+
+  useEffect(() => {
+    setResources(facilityService.getAll());
+  }, []);
 
   const filteredResources = resources.filter(res => {
     const matchesCategory = activeCategory === "All" || res.category === activeCategory;

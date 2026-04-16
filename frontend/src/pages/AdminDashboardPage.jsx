@@ -13,6 +13,7 @@ import { ROUTES } from "../utils/constants";
 import axiosInstance from "../services/axiosInstance";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import FacilitiesManagement from "../components/FacilitiesManagement";
 
 const stats = [
   {
@@ -760,29 +761,7 @@ export default function AdminDashboardPage() {
         {/* Body — conditionally render panels */}
         {activeNav === "Settings" && <SettingsPanel displayName={displayName} />}
 
-        {activeNav === "Facilities" && (
-          <main className="flex-1 overflow-y-auto bg-slate-50 p-8 space-y-6">
-            <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden p-8 text-center">
-              <div className="h-16 w-16 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <LayoutGrid className="h-8 w-8 text-blue-600" />
-              </div>
-              <h2 className="text-2xl font-black text-slate-900 mb-2">Facility Management</h2>
-              <p className="text-slate-500 max-w-md mx-auto">
-                This module is currently being optimized. Soon you will be able to manage all campus facilities, laboratories, and lecture halls from this unified interface.
-              </p>
-              <div className="mt-8 flex justify-center gap-4">
-                <div className="bg-slate-50 px-6 py-4 rounded-2xl border border-slate-100">
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Total Facilities</p>
-                  <p className="text-xl font-black text-slate-800">24 Active</p>
-                </div>
-                <div className="bg-slate-50 px-6 py-4 rounded-2xl border border-slate-100">
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Capacity</p>
-                  <p className="text-xl font-black text-slate-800">85% In Use</p>
-                </div>
-              </div>
-            </div>
-          </main>
-        )}
+        {activeNav === "Facilities" && <FacilitiesManagement />}
 
         {activeNav === "Bookings" && (
           <main className="flex-1 overflow-y-auto bg-slate-50 p-8 space-y-6">
