@@ -39,7 +39,11 @@ const Navbar = () => {
     // Role-specific links
     ...(isAdmin ? [{ label: "Admin Dashboard", to: ROUTES.ADMIN_DASHBOARD }] : []),
     ...(isTechnician ? [{ label: "Technician Portal", to: ROUTES.TECHNICIAN_DASHBOARD }] : []),
-    ...(!isAdmin && !isTechnician ? [{ label: "My Bookings", to: ROUTES.MY_BOOKINGS }] : []),
+    ...(!isAdmin && !isTechnician ? [
+      { label: "Individual Support", to: ROUTES.INDIVIDUAL_BOOKINGS },
+      { label: "My Individual Bookings", to: ROUTES.MY_INDIVIDUAL_HISTORY },
+      { label: "My History", to: ROUTES.MY_BOOKINGS }
+    ] : []),
     { label: "About", to: ROUTES.ABOUT },
     { label: "Contact", to: ROUTES.CONTACT },
   ];

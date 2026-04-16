@@ -10,6 +10,7 @@ import {
   ChevronRight,
   Info
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import Button from "../components/common/Button";
 
 // Resources are now fetched from facilityService
@@ -109,13 +110,13 @@ const ResourcesPage = () => {
                     <div className="absolute top-4 left-4">
                       <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider shadow-sm text-white ${
                         res.status === 'Available' ? 'bg-emerald-500' : 
-                        res.status === 'Booked' ? 'bg-amber-500' : 'bg-red-500'
+                        res.status === 'Maintenance' ? 'bg-amber-500' : 'bg-red-500'
                       }`}>
                         {res.status}
                       </span>
                     </div>
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-6">
-                      <Button fullWidth size="sm" className="bg-white text-slate-900 hover:bg-slate-100">
+                      <Button fullWidth size="sm" className="bg-white !text-black font-bold hover:bg-slate-100 shadow-xl">
                         View Details
                       </Button>
                     </div>
@@ -125,9 +126,9 @@ const ResourcesPage = () => {
                   <div className="p-6">
                     <div className="flex justify-between items-start mb-3">
                       <span className="text-xs font-bold text-blue-600 uppercase tracking-widest">{res.category}</span>
-                      <div className="flex items-center text-slate-500 text-xs font-medium">
-                        <Users className="h-3 w-3 mr-1" />
-                        Cap: {res.capacity}
+                      <div className="flex flex-col items-end text-slate-500 text-xs font-medium">
+                        <span className="text-emerald-600 font-bold mb-1">Avail: {res.availableSpaces} seats</span>
+                        <span className="flex items-center"><Users className="h-3 w-3 mr-1" /> Cap: {res.capacity}</span>
                       </div>
                     </div>
                     <h3 className="text-xl font-bold text-slate-900 mb-2 truncate group-hover:text-blue-600 transition-colors">
@@ -138,15 +139,20 @@ const ResourcesPage = () => {
                       {res.location}
                     </div>
                     
-                    <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
-                      <div className="flex items-center text-xs text-slate-400">
-                        <Clock className="h-3 w-3 mr-1" />
-                        Next: Tomorrow 09:00
-                      </div>
-                      <button className="text-blue-600 hover:text-blue-700 text-sm font-bold flex items-center gap-1">
-                        Book Now
-                        <ChevronRight className="h-4 w-4" />
-                      </button>
+                    <div className="pt-4 border-t border-slate-100 flex items-center justify-end">
+                      {res.availableSpaces > 0 ? (
+                        <button 
+                          onClick={() => navigate(`/booking/${res.id}`, { state: { resource: res } })}
+                          className="text-blue-600 hover:text-blue-700 text-sm font-bold flex items-center gap-1 transition-all"
+                        >
+                          Book Now
+                          <ChevronRight className="h-4 w-4" />
+                        </button>
+                      ) : (
+                        <div className="text-red-500 text-xs font-black uppercase tracking-wider bg-red-50 px-3 py-1.5 rounded-lg border border-red-100">
+                          Unavailable Seats for You!
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

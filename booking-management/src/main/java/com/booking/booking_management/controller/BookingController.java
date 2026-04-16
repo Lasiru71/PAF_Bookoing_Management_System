@@ -1,5 +1,8 @@
 package com.booking.booking_management.controller;
 
+import com.booking.booking_management.model.Booking;
+import com.booking.booking_management.service.BookingService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -10,39 +13,52 @@ import java.util.Map;
 @RequestMapping("/api/bookings")
 public class BookingController {
 
-    /**
-     * Users and Admins can view all bookings.
-     */
+    @Autowired
+    private BookingService bookingService;
+
     @GetMapping
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
-    public List<String> getAllBookings() {
-        return List.of("Booking #101 - Main Hall", "Booking #102 - Creative Lab");
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN', 'TECHNICIAN', 'STAFF')")
+    public List<Booking> getAllBookings() {
+        return bookingService.getAllBookings();
     }
 
-    /**
-     * Only Users can create a new booking.
-     */
     @PostMapping
-    @PreAuthorize("hasRole('USER')")
-    public String createBooking(@RequestBody Map<String, Object> bookingData) {
-        return "Booking created successfully!";
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN', 'STAFF')")
+    public Booking createBooking(@RequestBody Booking booking) {
+        return bookingService.createBooking(booking);
     }
 
-    /**
-     * Only Technicians can update the status of a booking.
-     */
     @PatchMapping("/{id}/status")
-    @PreAuthorize("hasRole('TECHNICIAN')")
-    public String updateBookingStatus(@PathVariable String id, @RequestBody Map<String, String> statusUpdate) {
-        return "Booking " + id + " status updated to: " + statusUpdate.get("status");
+    @PreAuthorize("hasAnyRole('USER', 'TECHNICIAN', 'ADMIN', 'STAFF')")
+    public Booking updateBookingStatus(@PathVariable String id, @RequestBody Map<String, String> update) {
+        String status = update.get("status");
+        String locationSuggestions = update.get("locationSuggestions");
+        String adminNote = update.get("adminNote");
+        System.out.println(">>> REQUEST ARRIVED: updateBookingStatus for ID=" + id + " Status=" + status + " Location=" + locationSuggestions + " Note=" + adminNote);
+        try {
+            return bookingService.updateBookingStatus(id, status, locationSuggestions, adminNote);
+        } catch (Exception e) {
+            System.err.println(">>> ERROR in updateBookingStatus: " + e.getMessage());
+            throw e;
+        }
     }
 
-    /**
-     * Admins can perform maintenance or administrative overrides.
-     */
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public String deleteBooking(@PathVariable String id) {
+        bookingService.deleteBooking(id);
         return "Booking " + id + " deleted by Administrator.";
+    }
+
+    @PatchMapping("/{id}/message")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN', 'STAFF')")
+    public Booking updateBookingMessage(@PathVariable String id, @RequestBody Map<String, String> messageUpdate) {
+        return bookingService.updateBookingMessage(id, messageUpdate.get("message"));
+    }
+
+    @PatchMapping("/{id}/selection")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN', 'STAFF')")
+    public Booking updateStudentSelection(@PathVariable String id, @RequestBody Map<String, String> selectionUpdate) {
+        return bookingService.updateStudentSelection(id, selectionUpdate.get("selection"));
     }
 }

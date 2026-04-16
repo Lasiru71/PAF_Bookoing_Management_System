@@ -1,15 +1,19 @@
-// AdminDashboardPage — vibrant colorful stat cards on clean white background
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
 import {
   Users, BookOpen, BarChart3, Settings, Shield,
   Trash2, Edit, LogOut, Bell, Search, TrendingUp, Filter,
   Activity, Home, ChevronRight, X, CheckCircle, Clock, Edit3,
   Globe, Lock, Palette, Server, Mail, Smartphone, Moon, Sun, Database, RefreshCw, Save, Download,
   FileText, LayoutGrid
+  FileText, Plus, Minus, MessageSquare, CalendarDays
 } from "lucide-react";
 import { ROUTES } from "../utils/constants";
+import { bookingService } from "../services/bookingService";
+import { resourceService } from "../services/resourceService";
 import axiosInstance from "../services/axiosInstance";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -68,6 +72,10 @@ const navSections = [
     header: "ACADEMIC", items: [
       { icon: LayoutGrid, label: "Facilities" },
       { icon: BookOpen, label: "Bookings" },
+      { icon: BookOpen, label: "Bookings" },
+      { icon: MessageSquare, label: "Message Box" },
+      { icon: Database, label: "Space Management" },
+      { icon: Smartphone, label: "Individual Bookings" }
     ]
   },
   { header: "BUSINESS", items: [{ icon: FileText, label: "Reports" }] },
@@ -419,6 +427,892 @@ function AddUserModal({ onClose, onAdd }) {
   );
 }
 
+// ─── Bookings Panel ──────────────────────────────────────────
+function BookingsPanel({ onGenerateReport }) {
+  const [bookings, setBookings] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    bookingService.getAllBookings()
+      .then(res => {
+        // Filter out individual bookings for this view
+        const standardBookings = res.filter(b => b.resourceId !== "INDIVIDUAL");
+        
+        // Sort: newest submission first
+        const sorted = [...standardBookings].sort((a, b) => {
+          if (a.createdAt && b.createdAt) {
+            return new Date(b.createdAt) - new Date(a.createdAt);
+          }
+          return (b.id || "").localeCompare(a.id || "");
+        });
+        setBookings(sorted);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error("Failed to fetch bookings", err);
+        setLoading(false);
+      });
+  }, []);
+
+  const handleStatusChange = (id, newStatus) => {
+    bookingService.updateBookingStatus(id, newStatus)
+      .then(updatedBooking => {
+        setBookings(prev => prev.map(b => b.id === id ? { ...b, status: updatedBooking.status } : b));
+      })
+      .catch(err => console.error("Update failed", err));
+  };
+
+  const handleDelete = async (id) => {
+    if (window.confirm("Are you sure you want to delete this booking? Reserved seats will be restored to the inventory.")) {
+      try {
+        await bookingService.deleteBooking(id);
+        setBookings(prev => prev.filter(b => b.id !== id));
+      } catch (err) {
+        console.error("Deletion failed", err);
+        alert("Failed to delete booking.");
+      }
+    }
+  };
+
+  // Group bookings by date
+  const groupedBookings = bookings.reduce((groups, booking) => {
+    const date = booking.bookingDate || "Undated";
+    if (!groups[date]) groups[date] = [];
+    groups[date].push(booking);
+    return groups;
+  }, {});
+
+  // Sort dates (newest first)
+  const sortedDates = Object.keys(groupedBookings).sort((a, b) => b.localeCompare(a));
+
+  const getStatusColor = (status) => {
+    if (status === "APPROVED") return "bg-emerald-100 text-emerald-700 border-emerald-200";
+    if (status === "REJECTED") return "bg-red-100 text-red-700 border-red-200";
+    return "bg-amber-100 text-amber-700 border-amber-200";
+  };
+
+  return (
+    <main className="flex-1 overflow-y-auto bg-slate-50 p-8">
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h2 className="text-2xl font-black text-slate-900">Academic Bookings</h2>
+          <p className="text-sm text-slate-500">Facility reservations grouped by schedule</p>
+        </div>
+        <button
+          onClick={() => onGenerateReport(bookings)}
+          className="flex items-center gap-2 px-6 py-3 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-xl shadow-lg transition-all active:scale-95 group"
+        >
+          <Download className="h-4 w-4 group-hover:-translate-y-0.5 transition-transform" />
+          Full Report (All Dates)
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="bg-white rounded-3xl border border-slate-200 p-20 text-center text-slate-500 font-medium">
+          Loading bookings...
+        </div>
+      ) : sortedDates.length === 0 ? (
+        <div className="bg-white rounded-3xl border border-dashed border-slate-200 p-20 text-center shadow-sm">
+          <CalendarDays className="h-12 w-12 text-slate-300 mx-auto mb-4" />
+          <p className="text-lg font-bold text-slate-500">No Bookings Yet</p>
+          <p className="text-sm text-slate-400 mt-1">Once students start booking, they will appear here by date.</p>
+        </div>
+      ) : (
+        <div className="space-y-10">
+          {sortedDates.map(date => (
+            <div key={date} className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="flex items-center justify-between mb-4 px-2">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-200 text-white">
+                    <CalendarDays className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-black text-slate-900">{date}</h3>
+                    <p className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">
+                      {groupedBookings[date].length} Total Reservations
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => onGenerateReport(groupedBookings[date])}
+                  className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 hover:border-blue-500 hover:text-blue-600 text-slate-600 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all shadow-sm hover:shadow-md"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  Report for {date}
+                </button>
+              </div>
+
+              <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200 text-[10px] uppercase font-black tracking-widest text-slate-400">
+                      <th className="px-6 py-4">Resource</th>
+                      <th className="px-6 py-4">Requested By</th>
+                      <th className="px-6 py-4">Time</th>
+                      <th className="px-6 py-4">Duration</th>
+                      <th className="px-6 py-4">Status</th>
+                      <th className="px-6 py-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {groupedBookings[date].map(booking => (
+                      <tr key={booking.id} className="hover:bg-slate-50/50 transition-colors group">
+                        <td className="px-6 py-4">
+                          <p className="font-bold text-sm text-slate-800">{booking.resourceName}</p>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">{booking.members} members</p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <p className="text-sm font-semibold text-slate-700">{booking.userEmail}</p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <p className="text-sm font-bold text-slate-700">{booking.bookingTime}</p>
+                        </td>
+                        <td className="px-6 py-4 text-sm font-semibold text-slate-600">
+                          {booking.durationHours}h {booking.durationMinutes > 0 ? `${booking.durationMinutes}m` : ""}
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${getStatusColor(booking.status)}`}>
+                            {booking.status || "PENDING"}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex justify-end items-center gap-2">
+                            {(booking.status === "PENDING" || !booking.status) && (
+                              <>
+                                <button
+                                  onClick={() => handleStatusChange(booking.id, "APPROVED")}
+                                  className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-black uppercase tracking-wider rounded-xl shadow-sm transition-all shadow-emerald-200"
+                                >
+                                  Approve
+                                </button>
+                                <button
+                                  onClick={() => handleStatusChange(booking.id, "REJECTED")}
+                                  className="px-4 py-2 bg-slate-100 hover:bg-red-50 hover:text-red-600 text-slate-600 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all"
+                                >
+                                  Reject
+                                </button>
+                              </>
+                            )}
+                            <button
+                              onClick={() => handleDelete(booking.id)}
+                              className="p-2 text-slate-300 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                              title="Delete Booking"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </main>
+  );
+}
+
+// ─── Message Box Panel ───────────────────────────────────────
+function MessageBoxPanel() {
+  const [bookings, setBookings] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    bookingService.getAllBookings()
+      .then(res => {
+        setBookings(res);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error("Failed to fetch bookings", err);
+        setLoading(false);
+      });
+  }, []);
+
+  const messages = bookings.filter(b => b.message && b.message.trim() !== "");
+
+  return (
+    <main className="flex-1 overflow-y-auto bg-slate-50 p-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h2 className="text-2xl font-black text-slate-900">Communication Center</h2>
+          <p className="text-sm text-slate-500">Review student messages and special requests</p>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2 mb-6">
+        <MessageSquare className="h-5 w-5 text-blue-600" />
+        <h3 className="text-lg font-black text-slate-900">Message Box</h3>
+      </div>
+
+      {loading ? (
+        <div className="p-10 text-center text-slate-500 font-medium bg-white rounded-2xl border border-slate-200">
+          Loading messages...
+        </div>
+      ) : messages.length === 0 ? (
+        <div className="bg-white rounded-3xl border border-dashed border-slate-200 p-16 text-center shadow-sm">
+          <Mail className="h-10 w-10 text-slate-300 mx-auto mb-3" />
+          <p className="text-base font-bold text-slate-500">Safe and Sound</p>
+          <p className="text-sm text-slate-400 mt-1">No special requests from students at the moment.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {messages.map(booking => (
+            <div key={`msg-${booking.id}`} className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
+              <div className="flex items-center justify-between mb-4">
+                <div className="px-3 py-1 bg-blue-50 text-blue-700 text-[10px] font-black uppercase tracking-widest rounded-full border border-blue-100 group-hover:bg-blue-600 group-hover:text-white group-hover:border-blue-600 transition-colors">
+                  {booking.resourceName}
+                </div>
+                <div className="flex items-center gap-1.5 text-slate-400 text-[10px] font-bold uppercase tracking-wider">
+                  <Clock className="h-3 w-3" />
+                  {booking.bookingDate}
+                </div>
+              </div>
+              <div className="bg-slate-50/50 rounded-2xl p-4 border border-slate-100 mb-5 min-h-[100px] flex flex-col justify-center">
+                <p className="text-sm text-slate-700 font-medium leading-relaxed italic">
+                  "{booking.message}"
+                </p>
+              </div>
+              <div className="flex items-center gap-3 pt-4 border-t border-slate-50">
+                <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center text-xs font-black text-slate-500 border border-slate-200">
+                  {booking.userEmail.charAt(0).toUpperCase()}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-slate-800 truncate leading-none mb-1">
+                    {booking.userEmail.split('@')[0]}
+                  </p>
+                  <p className="text-[10px] text-slate-400 truncate">
+                    {booking.userEmail}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </main>
+  );
+}
+
+// ─── Space Management Panel ──────────────────────────────────
+function SpaceManagementPanel() {
+  const [resources, setResources] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [updatingId, setUpdatingId] = useState(null);
+  const [editValue, setEditValue] = useState("");
+
+  useEffect(() => {
+    fetchResources();
+  }, []);
+
+  const fetchResources = () => {
+    setLoading(true);
+    resourceService.getAllResources()
+      .then(data => {
+        // Sort: newest first (assuming ID order or reversing)
+        const sorted = [...data].reverse();
+        setResources(sorted);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error("Failed to fetch resources", err);
+        setLoading(false);
+      });
+  };
+
+  const handleStatusChange = (id, newStatus) => {
+    resourceService.updateResourceStatus(id, newStatus)
+      .then(() => {
+        setResources(prev => prev.map(r => {
+          if (r.id === id) {
+            const updated = { ...r, status: newStatus };
+            if (newStatus === "Maintenance" || newStatus === "Booked") {
+              updated.availableSpaces = 0;
+            }
+            return updated;
+          }
+          return r;
+        }));
+      })
+      .catch(err => console.error("Status update failed", err));
+  };
+
+  const getStatusStyle = (status) => {
+    if (status === "Available") return "bg-emerald-50 text-emerald-700 border-emerald-200";
+    if (status === "Maintenance") return "bg-amber-50 text-amber-700 border-amber-200";
+    if (status === "Booked") return "bg-red-50 text-red-700 border-red-200";
+    return "bg-slate-50 text-slate-700 border-slate-200";
+  };
+
+  const handleUpdate = (id, currentVal) => {
+    setUpdatingId(id);
+    setEditValue(currentVal.toString());
+  };
+
+  const saveUpdate = (id) => {
+    if (isNaN(editValue) || editValue === "") {
+      alert("Please enter a valid number.");
+      return;
+    }
+
+    resourceService.updateAvailableSpaces(id, parseInt(editValue))
+      .then(() => {
+        setResources(prev => prev.map(r => r.id === id ? { ...r, availableSpaces: parseInt(editValue) } : r));
+        setUpdatingId(null);
+      })
+      .catch(err => {
+        console.error("Update failed", err);
+        alert("Error updating spaces.");
+      });
+  };
+
+  const quickAdjust = (res, delta) => {
+    const newValue = Math.max(0, Math.min(res.capacity, res.availableSpaces + delta));
+    if (newValue === res.availableSpaces) return;
+
+    resourceService.updateAvailableSpaces(res.id, newValue)
+      .then(() => {
+        setResources(prev => prev.map(r => r.id === res.id ? { ...r, availableSpaces: newValue } : r));
+      })
+      .catch(err => console.error("Quick adjust failed", err));
+  };
+
+  const handleReset = (res) => {
+    if (window.confirm(`Reset ${res.name} to full capacity (${res.capacity})? This will also set status to Available.`)) {
+      axiosInstance.patch(`/api/resources/${res.id}`, {
+        availableSpaces: res.capacity,
+        status: "Available"
+      })
+        .then(() => {
+          setResources(prev => prev.map(r => r.id === res.id ? {
+            ...r,
+            availableSpaces: res.capacity,
+            status: "Available"
+          } : r));
+        })
+        .catch(err => {
+          console.error("Reset failed", err);
+          alert("Reset failed. Please try again.");
+        });
+    }
+  };
+
+  return (
+    <main className="flex-1 overflow-y-auto bg-slate-50 p-8">
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h2 className="text-2xl font-black text-slate-900">Space Management</h2>
+          <p className="text-sm text-slate-500">Manually control facility availability and seat counts</p>
+        </div>
+        <button
+          onClick={fetchResources}
+          className="p-2.5 rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors shadow-sm"
+        >
+          <RefreshCw className="h-4 w-4" />
+        </button>
+      </div>
+
+      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+        {loading ? (
+          <div className="p-20 text-center">
+            <RefreshCw className="h-8 w-8 text-blue-500 animate-spin mx-auto mb-4" />
+            <p className="text-slate-500 font-medium">Loading facilities...</p>
+          </div>
+        ) : (
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-slate-50/50 border-b border-slate-100 text-[10px] uppercase tracking-widest text-slate-400 font-extrabold">
+                <th className="px-8 py-5">Resource</th>
+                <th className="px-8 py-5">Category</th>
+                <th className="px-8 py-5">Total Capacity</th>
+                <th className="px-8 py-5">Available Seats</th>
+                <th className="px-8 py-5">Current Status</th>
+                <th className="px-8 py-5 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {resources.map((res) => (
+                <tr key={res.id} className="hover:bg-slate-50/30 transition-colors group">
+                  <td className="px-8 py-5">
+                    <div className="flex items-center gap-4">
+                      <div className="h-10 w-10 rounded-xl overflow-hidden shadow-sm">
+                        <img src={res.image} alt="" className="h-full w-full object-cover" />
+                      </div>
+                      <p className="font-bold text-slate-800 text-sm">{res.name}</p>
+                    </div>
+                  </td>
+                  <td className="px-8 py-5">
+                    <span className="px-2.5 py-1 rounded-md bg-blue-50 text-blue-600 text-[10px] font-bold uppercase tracking-wider border border-blue-100">
+                      {res.category}
+                    </span>
+                  </td>
+                  <td className="px-8 py-5">
+                    <div className="flex items-center gap-2 text-slate-500">
+                      <Users className="h-3.5 w-3.5" />
+                      <span className="text-sm font-semibold">{res.capacity}</span>
+                    </div>
+                  </td>
+                  <td className="px-8 py-5">
+                    {updatingId === res.id ? (
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          value={editValue}
+                          onChange={(e) => setEditValue(e.target.value)}
+                          className="w-20 px-3 py-1.5 text-xs font-bold border-2 border-blue-500 rounded-lg outline-none"
+                        />
+                        <button
+                          onClick={() => saveUpdate(res.id)}
+                          className="p-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                        >
+                          <Save className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={() => setUpdatingId(null)}
+                          className="p-1.5 bg-slate-100 text-slate-400 rounded-lg hover:text-slate-600 transition"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-4">
+                        <button
+                          onClick={() => quickAdjust(res, -1)}
+                          disabled={res.availableSpaces === 0}
+                          className="p-1 px-1.5 bg-slate-100 text-slate-500 rounded-lg hover:bg-red-50 hover:text-red-500 disabled:opacity-30 transition-colors"
+                        >
+                          <Minus className="h-3 w-3" />
+                        </button>
+
+                        <div className="flex flex-col items-center">
+                          <span className={`text-sm font-black min-w-[2ch] text-center ${res.availableSpaces === 0 ? 'text-red-500' : 'text-emerald-600'}`}>
+                            {res.availableSpaces}
+                          </span>
+                        </div>
+
+                        <button
+                          onClick={() => quickAdjust(res, 1)}
+                          disabled={res.availableSpaces >= res.capacity}
+                          className="p-1 px-1.5 bg-slate-100 text-slate-500 rounded-lg hover:bg-emerald-50 hover:text-emerald-500 disabled:opacity-30 transition-colors"
+                        >
+                          <Plus className="h-3 w-3" />
+                        </button>
+
+                        <div className="h-1.5 w-16 bg-slate-100 rounded-full overflow-hidden hidden xl:block ml-2">
+                          <div
+                            className={`h-full transition-all duration-500 ${res.availableSpaces === 0 ? 'bg-red-400' : 'bg-emerald-400'}`}
+                            style={{ width: `${(res.availableSpaces / res.capacity) * 100}%` }}
+                          />
+                        </div>
+
+                        {/* Reset Button */}
+                        <button
+                          onClick={() => handleReset(res)}
+                          className="ml-4 p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition-all group flex items-center gap-1.5 border border-blue-100"
+                          title="Reset to Full Capacity"
+                        >
+                          <RefreshCw className="h-3 w-3 group-active:rotate-180 transition-transform duration-500" />
+                          <span className="text-[10px] font-black uppercase tracking-wider hidden lg:block">Reset</span>
+                        </button>
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-8 py-5">
+                    <select
+                      value={res.status}
+                      onChange={(e) => handleStatusChange(res.id, e.target.value)}
+                      className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider border outline-none cursor-pointer transition-all ${getStatusStyle(res.status)}`}
+                    >
+                      <option value="Available">Available</option>
+                      <option value="Maintenance">Maintenance</option>
+                      <option value="Booked">Booked</option>
+                    </select>
+                  </td>
+                  <td className="px-8 py-5 text-right">
+                    {updatingId !== res.id && (
+                      <button
+                        onClick={() => handleUpdate(res.id, res.availableSpaces)}
+                        className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </main>
+  );
+}
+
+// ─── Individual Bookings Panel ─────────────────────────────
+// ─── Individual Bookings Panel ─────────────────────────────
+const BUILDINGS = {
+  "Main Building": ["Floor 01", "Floor 02", "Floor 03", "Floor 04"],
+  "New Building": ["Floor 03", "Floor 05", "Floor 08", "Floor 09"]
+};
+
+function IndividualBookingsPanel() {
+  const [bookings, setBookings] = useState([]);
+  const [loading, setLoading] = useState(true);
+  // mapping: { bookingId: { [building]: { floors: [], facilities: [] } } }
+  const [selectedMapping, setSelectedMapping] = useState({});
+  // adminNotes: { bookingId: string }
+  const [adminNotes, setAdminNotes] = useState({});
+
+  useEffect(() => {
+    bookingService.getAllBookings()
+      .then(res => {
+        const individual = res.filter(b => b.resourceId === "INDIVIDUAL");
+        const sorted = [...individual].sort((a, b) => {
+          if (a.createdAt && b.createdAt) return new Date(b.createdAt) - new Date(a.createdAt);
+          return (b.id || "").localeCompare(a.id || "");
+        });
+        setBookings(sorted);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error("Failed to fetch individual bookings", err);
+        setLoading(false);
+      });
+  }, []);
+
+  const getFacilities = (resourceName) => {
+    if (!resourceName) return [];
+    return resourceName.replace("Individual Session - ", "").split(", ");
+  };
+
+  const handleToggle = (bookingId, building, type, value) => {
+    setSelectedMapping(prev => {
+      const bookingData = prev[bookingId] || {};
+      const buildingData = bookingData[building] || { floors: [], facilities: [] };
+      const currentList = buildingData[type] || [];
+      
+      const updatedList = currentList.includes(value)
+        ? currentList.filter(v => v !== value)
+        : [...currentList, value];
+      
+      return {
+        ...prev,
+        [bookingId]: {
+          ...bookingData,
+          [building]: { ...buildingData, [type]: updatedList }
+        }
+      };
+    });
+  };
+
+  const handleStatusChange = (id, newStatus) => {
+    if (newStatus === "APPROVED") {
+        const mapping = selectedMapping[id] || {};
+        const suggestionParts = [];
+        const note = adminNotes[id] || "";
+        
+        Object.entries(mapping).forEach(([building, data]) => {
+          if (data.floors?.length > 0 || data.facilities?.length > 0) {
+            let part = `${building}`;
+            if (data.floors?.length > 0) part += ` (${data.floors.join(", ")})`;
+            if (data.facilities?.length > 0) part += ` - Facilities: ${data.facilities.join(", ")}`;
+            suggestionParts.push(part);
+          }
+        });
+
+        const finalString = suggestionParts.join("; ");
+        
+        if (!finalString) {
+            alert("Please select at least one location and facility group before approving.");
+            return;
+        }
+
+        bookingService.updateBookingStatus(id, newStatus, finalString, note)
+          .then(updatedBooking => {
+            setBookings(prev => prev.map(b => b.id === id ? { ...b, status: updatedBooking.status, locationSuggestions: updatedBooking.locationSuggestions, adminNote: updatedBooking.adminNote } : b));
+          })
+          .catch(err => console.error("Update failed", err));
+    } else {
+        bookingService.updateBookingStatus(id, newStatus)
+          .then(updatedBooking => {
+            setBookings(prev => prev.map(b => b.id === id ? { ...b, status: updatedBooking.status } : b));
+          })
+          .catch(err => console.error("Update failed", err));
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (window.confirm("Delete this individual booking request?")) {
+      try {
+        await bookingService.deleteBooking(id);
+        setBookings(prev => prev.filter(b => b.id !== id));
+      } catch (err) {
+        console.error("Deletion failed", err);
+        alert("Failed to delete.");
+      }
+    }
+  };
+
+  const handleGenerateReport = () => {
+    const doc = new jsPDF("l", "mm", "a4");
+    const timestamp = new Date().toLocaleString();
+
+    // Header
+    doc.setFontSize(18);
+    doc.setTextColor(15, 23, 42); // slate-900
+    doc.text("CampusReserve - Individual Bookings Report", 14, 20);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text(`Generated on: ${timestamp}`, 14, 28);
+    doc.text(`Total Records: ${bookings.length}`, 14, 33);
+
+    const tableData = bookings.map(b => [
+        b.id,
+        b.userEmail,
+        getFacilities(b.resourceName).join(", "),
+        b.studentSelection || "Not Selected",
+        b.locationSuggestions || "None",
+        b.adminNote || "N/A",
+        `${b.bookingDate} @ ${b.bookingTime}`,
+        b.status
+    ]);
+
+    autoTable(doc, {
+      startY: 40,
+      head: [["ID", "Student", "Facilities", "Final Choice", "Suggestions", "Admin Note", "Schedule", "Status"]],
+      body: tableData,
+      theme: "striped",
+      headStyles: { fillColor: [30, 41, 59], fontSize: 9, fontStyle: "bold" }, // slate-800
+      bodyStyles: { fontSize: 8 },
+      columnStyles: {
+        0: { cellWidth: 20 },
+        1: { cellWidth: 35 },
+        2: { cellWidth: 30 },
+        3: { cellWidth: 30 },
+        4: { cellWidth: 40 },
+        5: { cellWidth: 35 },
+        6: { cellWidth: 30 },
+        7: { cellWidth: 20 }
+      }
+    });
+
+    doc.save(`Individual_Bookings_Report_${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
+  const getStatusColor = (status) => {
+    if (status === "APPROVED") return "bg-emerald-100 text-emerald-700 border-emerald-200";
+    if (status === "REJECTED") return "bg-red-100 text-red-700 border-red-200";
+    return "bg-amber-100 text-amber-700 border-amber-200";
+  };
+
+  return (
+    <main className="flex-1 overflow-y-auto bg-slate-50 p-8">
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h2 className="text-2xl font-black text-slate-900">Individual Bookings</h2>
+          <p className="text-sm text-slate-500">Custom mapping of facilities to physical campus locations</p>
+        </div>
+        <button 
+          onClick={handleGenerateReport}
+          className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-black uppercase tracking-widest rounded-xl shadow-lg shadow-slate-200 transition-all hover:scale-[1.02] active:scale-95"
+        >
+          <FileText className="h-4 w-4" /> Download PDF Report
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="bg-white rounded-3xl border border-slate-200 p-20 text-center text-slate-500 font-medium">
+          Loading individual requests...
+        </div>
+      ) : bookings.length === 0 ? (
+        <div className="bg-white rounded-3xl border border-dashed border-slate-200 p-20 text-center shadow-sm">
+          <Smartphone className="h-12 w-12 text-slate-300 mx-auto mb-4" />
+          <p className="text-lg font-bold text-slate-500">No Individual Requests</p>
+        </div>
+      ) : (
+        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-200 text-[10px] uppercase font-black tracking-widest text-slate-400">
+                <th className="px-6 py-4">Requester</th>
+                <th className="px-6 py-4">Requested Support</th>
+                <th className="px-6 py-4">Details</th>
+                <th className="px-6 py-4">Target Location Selection</th>
+                <th className="px-6 py-4">Status</th>
+                <th className="px-6 py-4 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {bookings.map(booking => {
+                const requestedFacilities = getFacilities(booking.resourceName);
+                const bookingMapping = selectedMapping[booking.id] || {};
+                
+                return (
+                  <tr key={booking.id} className="hover:bg-slate-50/50 transition-colors group">
+                    <td className="px-6 py-4">
+                      <p className="text-sm font-bold text-slate-800">{booking.userEmail}</p>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">{booking.members} members</p>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex flex-wrap gap-1">
+                        {requestedFacilities.map((tag, idx) => (
+                          <span key={idx} className="bg-blue-50 text-blue-600 text-[9px] font-black uppercase px-2 py-0.5 rounded border border-blue-100">
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 max-w-xs">
+                      <p className="text-xs text-slate-600 font-medium line-clamp-2 italic">
+                        {booking.message || "No special requests"}
+                      </p>
+                      <p className="text-[10px] font-bold text-slate-400 mt-1">{booking.bookingDate} @ {booking.bookingTime}</p>
+                    </td>
+                    <td className="px-6 py-4 min-w-[320px]">
+                      {booking.status === "APPROVED" ? (
+                        <div className="space-y-2">
+                          {booking.studentSelection ? (
+                            <div className="bg-emerald-500 text-white rounded-xl p-3 shadow-lg shadow-emerald-500/20 border border-emerald-400 border-dashed animate-in zoom-in-95 duration-300">
+                               <p className="text-[8px] font-black uppercase tracking-widest mb-1 flex items-center gap-1">
+                                 <CheckCircle className="h-2 w-2" /> Student Final Selection
+                               </p>
+                               <p className="text-[11px] font-black">{booking.studentSelection}</p>
+                            </div>
+                          ) : (
+                            <div className="space-y-1">
+                              <p className="text-[8px] font-black text-slate-400 uppercase mb-1 tracking-widest">Awaiting student approval for:</p>
+                              {booking.locationSuggestions?.split("; ").map((loc, idx) => (
+                                <div key={idx} className="bg-blue-50 text-blue-700 text-[9px] font-bold px-2 py-1 rounded border border-blue-100">
+                                  {loc}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          
+                          {booking.adminNote && (
+                            <div className="mt-2 p-2 bg-slate-50 border border-slate-100 rounded-lg">
+                              <p className="text-[8px] font-black text-slate-400 uppercase mb-1 flex items-center gap-1">
+                                <Mail className="h-2 w-2" /> Administrator Note
+                              </p>
+                              <p className="text-[9px] text-slate-600 italic leading-tight">"{booking.adminNote}"</p>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          {Object.entries(BUILDINGS).map(([building, floors]) => (
+                            <div key={building} className="bg-slate-50/50 p-2 rounded-xl border border-slate-100">
+                              <p className="text-[10px] font-black text-slate-900 uppercase tracking-tighter mb-2 border-b border-slate-200 pb-1">{building}</p>
+                              
+                              <div className="space-y-2">
+                                <div>
+                                  <p className="text-[8px] font-black text-slate-400 uppercase mb-1">Floors</p>
+                                  <div className="flex flex-wrap gap-1">
+                                    {floors.map(floor => {
+                                      const isSelected = (bookingMapping[building]?.floors || []).includes(floor);
+                                      return (
+                                        <button
+                                          key={floor}
+                                          onClick={() => handleToggle(booking.id, building, "floors", floor)}
+                                          className={`px-2 py-0.5 text-[8px] font-bold rounded border transition-all ${
+                                            isSelected ? "bg-blue-600 border-blue-600 text-white shadow-sm" : "bg-white border-slate-200 text-slate-500 hover:text-blue-600"
+                                          }`}
+                                        >
+                                          {floor}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                                
+                                <div>
+                                  <p className="text-[8px] font-black text-slate-400 uppercase mb-1">Assign Facilities</p>
+                                  <div className="flex flex-wrap gap-1">
+                                    {requestedFacilities.map(fac => {
+                                      const isSelected = (bookingMapping[building]?.facilities || []).includes(fac);
+                                      return (
+                                        <button
+                                          key={fac}
+                                          onClick={() => handleToggle(booking.id, building, "facilities", fac)}
+                                          className={`px-2 py-0.5 text-[8px] font-bold rounded border transition-all ${
+                                            isSelected ? "bg-emerald-500 border-emerald-500 text-white shadow-sm" : "bg-white border-slate-200 text-slate-500 hover:text-emerald-600"
+                                          }`}
+                                        >
+                                          {fac}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+
+                          {/* Inbox Section */}
+                          <div className="pt-2">
+                             <div className="flex items-center gap-2 mb-1.5">
+                               <div className="h-4 w-4 rounded-md bg-blue-100 flex items-center justify-center">
+                                 <Mail className="h-2 w-2 text-blue-600" />
+                               </div>
+                               <p className="text-[9px] font-black text-slate-500 uppercase tracking-wider">Admin Inbox / Note to Student</p>
+                             </div>
+                             <textarea
+                               value={adminNotes[booking.id] || ""}
+                               onChange={(e) => setAdminNotes(prev => ({ ...prev, [booking.id]: e.target.value }))}
+                               placeholder="Type specific instructions or details for this request..."
+                               className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-[10px] text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all min-h-[60px] resize-none"
+                             />
+                          </div>
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${getStatusColor(booking.status)}`}>
+                        {booking.status || "PENDING"}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex justify-end items-center gap-2">
+                         {(booking.status === "PENDING" || !booking.status) && (
+                          <>
+                            <button
+                              onClick={() => handleStatusChange(booking.id, "APPROVED")}
+                              className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-[9px] font-black uppercase tracking-wider rounded-lg shadow-sm transition-all"
+                            >
+                              Submit
+                            </button>
+                            <button
+                              onClick={() => handleStatusChange(booking.id, "REJECTED")}
+                              className="px-3 py-1.5 bg-slate-100 hover:bg-red-50 hover:text-red-600 text-slate-600 text-[9px] font-black uppercase tracking-wider rounded-lg transition-all"
+                            >
+                              Reject
+                            </button>
+                          </>
+                        )}
+                        <button
+                          onClick={() => handleDelete(booking.id)}
+                          className="p-1.5 text-slate-300 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </main>
+  );
+}
+
+
 export default function AdminDashboardPage() {
   const { auth, logoutUser } = useAuth();
   const navigate = useNavigate();
@@ -569,8 +1463,26 @@ export default function AdminDashboardPage() {
     setTimeout(() => setToast(null), 3000);
   };
 
-  const generateBookingPDF = () => {
+  const generateBookingPDF = async (customData = null) => {
+    setToast("Preparing your report... ⏳");
+    // If we have custom data (from BookingsPanel), use it. Otherwise, fetch fresh data.
+    let bookingsToReport = customData;
+
+    if (!bookingsToReport) {
+      try {
+        const response = await bookingService.getAllBookings();
+        bookingsToReport = response;
+      } catch (err) {
+        console.error("Report fetch failed", err);
+        setToast("Error: Could not fetch bookings for report.");
+        setTimeout(() => setToast(null), 3000);
+        return;
+      }
+    }
+
     const doc = new jsPDF();
+
+    // Header
     doc.setFillColor(37, 99, 235);
     doc.rect(0, 0, 210, 40, "F");
     doc.setTextColor(255, 255, 255);
@@ -580,30 +1492,40 @@ export default function AdminDashboardPage() {
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
     doc.text(`Generated on ${new Date().toLocaleString()}`, 105, 30, { align: "center" });
+
+    // Overview Section
     doc.setTextColor(30, 41, 59);
     doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
     doc.text("Booking Overview", 14, 55);
+
     doc.setFontSize(11);
     doc.setFont("helvetica", "normal");
-    doc.text("Active Bookings: 347", 14, 65);
-    doc.text("Pending Approvals: 14", 14, 72);
-    doc.text("Completed This Month: 289", 14, 79);
+    doc.text(`Total Records in Report: ${bookingsToReport.length}`, 14, 65);
+    doc.text(`Pending Approvals: ${bookingsToReport.filter(b => b.status === "PENDING" || !b.status).length}`, 14, 72);
+    doc.text(`Approved Bookings: ${bookingsToReport.filter(b => b.status === "APPROVED").length}`, 14, 79);
+
+    // Table
+    const tableBody = bookingsToReport.map((b, i) => [
+      (i + 1).toString(),
+      b.resourceName || "N/A",
+      b.userEmail || "N/A",
+      b.bookingDate || "N/A",
+      b.bookingTime || "N/A",
+      b.status || "PENDING"
+    ]);
+
     autoTable(doc, {
       startY: 95,
       head: [["#", "Facility", "Booked By", "Date", "Time", "Status"]],
-      body: [
-        ["1", "Auditorium A", "Hasindu C.", "2026-04-12", "09:00-11:00", "Approved"],
-        ["2", "Lab Room 3", "Kasun M.", "2026-04-12", "14:00-16:00", "Pending"],
-        ["3", "Conference Hall", "Amali S.", "2026-04-13", "10:00-12:00", "Approved"],
-        ["4", "Sports Complex", "Nadee F.", "2026-04-13", "15:00-17:00", "Pending"],
-        ["5", "Library Room 2", "Lasiru P.", "2026-04-14", "08:00-10:00", "Approved"],
-      ],
+      body: tableBody.length > 0 ? tableBody : [["-", "No records found", "-", "-", "-", "-"]],
       theme: "grid",
       headStyles: { fillColor: [79, 70, 229], textColor: [255, 255, 255], fontStyle: "bold" },
       alternateRowStyles: { fillColor: [248, 250, 252] },
+      styles: { fontSize: 9 }
     });
-    doc.save("CampusReserve_Booking_Report.pdf");
+
+    doc.save(`CampusReserve_Booking_Report_${new Date().toISOString().split('T')[0]}.pdf`);
     setToast("Booking report downloaded! 📊");
     setTimeout(() => setToast(null), 3000);
   };
@@ -662,15 +1584,18 @@ export default function AdminDashboardPage() {
       >
         {/* Brand */}
         <div className="px-6 pt-7 pb-5 border-b border-white/[0.07]">
-          <div className="flex items-center gap-3">
+          <div
+            onClick={() => navigate("/")}
+            className="flex items-center gap-3 cursor-pointer group transition-all"
+          >
             <div
-              className="h-10 w-10 rounded-2xl flex items-center justify-center shadow-xl"
+              className="h-10 w-10 rounded-2xl flex items-center justify-center shadow-xl group-hover:shadow-blue-500/20 transition-all border border-white/5"
               style={{ background: "linear-gradient(135deg,#38bdf8,#2563eb)" }}
             >
-              <Shield className="h-5 w-5 text-white" />
+              <Shield className="h-5 w-5 text-white group-hover:scale-110 transition-transform" />
             </div>
             <div>
-              <p className="text-white font-black text-sm tracking-tight leading-none">CampusReserve</p>
+              <p className="text-white font-black text-sm tracking-tight leading-none group-hover:text-sky-400 transition-colors">CampusReserve</p>
               <p className="text-slate-500 text-[9px] mt-1 font-bold uppercase tracking-[0.18em]">Admin Console</p>
             </div>
           </div>
@@ -760,6 +1685,10 @@ export default function AdminDashboardPage() {
 
         {/* Body — conditionally render panels */}
         {activeNav === "Settings" && <SettingsPanel displayName={displayName} />}
+        {activeNav === "Bookings" && <BookingsPanel onGenerateReport={generateBookingPDF} />}
+        {activeNav === "Message Box" && <MessageBoxPanel />}
+        {activeNav === "Space Management" && <SpaceManagementPanel />}
+        {activeNav === "Individual Bookings" && <IndividualBookingsPanel />}
 
         {activeNav === "Facilities" && <FacilitiesManagement />}
 
