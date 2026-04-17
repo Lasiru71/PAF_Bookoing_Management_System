@@ -10,9 +10,9 @@ import { ROUTES } from "../../utils/constants";
 const guestLinks = [
   { label: "Home", to: ROUTES.HOME },
   { 
-    label: "Resources", 
+    label: "Facilities & Resources", 
     subLinks: [
-      { label: "All Resources", to: ROUTES.RESOURCES },
+      { label: "All Facilities & Resources", to: ROUTES.RESOURCES },
       { label: "Individual Support", to: ROUTES.INDIVIDUAL_BOOKINGS },
     ]
   },
@@ -44,9 +44,9 @@ const Navbar = () => {
   const authLinks = [
     { label: "Home", to: ROUTES.HOME },
     { 
-      label: "Resources", 
+      label: "Facilities & Resources", 
       subLinks: [
-        { label: "All Resources", to: ROUTES.RESOURCES },
+        { label: "All Facilities & Resources", to: ROUTES.RESOURCES },
         ...(!isAdmin && !isTechnician ? [
           { label: "Individual Support", to: ROUTES.INDIVIDUAL_BOOKINGS },
         ] : []),
