@@ -51,16 +51,15 @@ public class IncidentTicketService {
             }
         }
 
-        IncidentTicket ticket = IncidentTicket.builder()
-                .resource(request.getResource())
-                .category(request.getCategory())
-                .description(request.getDescription())
-                .priority(request.getPriority())
-                .contactInfo(request.getContactInfo())
-                .studentId(request.getStudentId())
-                .imageUrls(imageUrls)
-                .status(IncidentStatus.OPEN)
-                .build();
+        IncidentTicket ticket = new IncidentTicket();
+        ticket.setResource(request.getResource());
+        ticket.setCategory(request.getCategory());
+        ticket.setDescription(request.getDescription());
+        ticket.setPriority(request.getPriority());
+        ticket.setContactInfo(request.getContactInfo());
+        ticket.setStudentId(request.getStudentId());
+        ticket.setImageUrls(imageUrls);
+        ticket.setStatus(IncidentStatus.OPEN);
 
         return repository.save(ticket);
     }

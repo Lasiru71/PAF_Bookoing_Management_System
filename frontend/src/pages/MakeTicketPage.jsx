@@ -113,6 +113,7 @@ const MakeTicketPage = () => {
       const response = await axios.post(`${BASE_URL}/api/incidents`, data, {
         headers: {
           "Content-Type": "multipart/form-data",
+          "Authorization": `Bearer ${auth.token}`
         },
       });
       setSuccess(response.data);
