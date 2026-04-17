@@ -1,0 +1,133 @@
+package com.booking.booking_management.model;
+
+import com.booking.booking_management.enums.IncidentPriority;
+import com.booking.booking_management.enums.IncidentStatus;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
+
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+
+@Document(collection = "incident_tickets")
+public class IncidentTicket {
+
+    @Id
+    private String id;
+
+    private String resource;
+
+    private String category;
+
+    private String description;
+
+    private IncidentPriority priority;
+
+    private String contactInfo;
+
+    private List<String> imageUrls = new ArrayList<>();
+
+    private String studentId;
+
+    private IncidentStatus status;
+
+    @CreatedDate
+    private LocalDateTime createdAt;
+
+    public IncidentTicket() {
+    }
+
+    public IncidentTicket(String id, String resource, String category, String description, IncidentPriority priority, String contactInfo, List<String> imageUrls, String studentId, IncidentStatus status, LocalDateTime createdAt) {
+        this.id = id;
+        this.resource = resource;
+        this.category = category;
+        this.description = description;
+        this.priority = priority;
+        this.contactInfo = contactInfo;
+        this.imageUrls = imageUrls;
+        this.studentId = studentId;
+        this.status = status;
+        this.createdAt = createdAt;
+    }
+
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
+    }
+
+    public String getResource() {
+        return resource;
+    }
+
+    public void setResource(String resource) {
+        this.resource = resource;
+    }
+
+    public String getCategory() {
+        return category;
+    }
+
+    public void setCategory(String category) {
+        this.category = category;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public IncidentPriority getPriority() {
+        return priority;
+    }
+
+    public void setPriority(IncidentPriority priority) {
+        this.priority = priority;
+    }
+
+    public String getContactInfo() {
+        return contactInfo;
+    }
+
+    public void setContactInfo(String contactInfo) {
+        this.contactInfo = contactInfo;
+    }
+
+    public List<String> getImageUrls() {
+        return imageUrls;
+    }
+
+    public void setImageUrls(List<String> imageUrls) {
+        this.imageUrls = imageUrls;
+    }
+
+    public String getStudentId() {
+        return studentId;
+    }
+
+    public void setStudentId(String studentId) {
+        this.studentId = studentId;
+    }
+
+    public IncidentStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(IncidentStatus status) {
+        this.status = status;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+}

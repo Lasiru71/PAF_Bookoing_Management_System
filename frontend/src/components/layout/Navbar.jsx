@@ -1,7 +1,7 @@
 // Responsive Navbar — shows different content based on auth state and user role
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Bell, Menu, X, ChevronDown, LogOut, User, Shield, Wrench } from "lucide-react";
+import { Bell, Menu, X, ChevronDown, LogOut, User, Shield, Wrench, AlertCircle } from "lucide-react";
 import Logo from "../common/Logo";
 import Button from "../common/Button";
 import { useAuth } from "../../context/AuthContext";
@@ -54,6 +54,9 @@ const Navbar = () => {
     },
     // Role-specific links
     ...(isTechnician ? [{ label: "Technician Portal", to: ROUTES.TECHNICIAN_DASHBOARD }] : []),
+    
+    // Add "Make a Ticket" for students
+    ...(!isAdmin && !isTechnician ? [{ label: "Make a Ticket", to: ROUTES.MAKE_TICKET, icon: <AlertCircle className="h-4 w-4" /> }] : []),
 
     { label: "About", to: ROUTES.ABOUT },
     { label: "Contact", to: ROUTES.CONTACT },
@@ -113,8 +116,9 @@ const Navbar = () => {
                 <Link
                   key={link.to}
                   to={link.to}
-                  className="text-sm font-medium text-slate-600 hover:text-blue-700 transition-colors"
+                  className="flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-blue-700 transition-colors"
                 >
+                  {link.icon}
                   {link.label}
                 </Link>
               )
@@ -231,8 +235,9 @@ const Navbar = () => {
                 key={link.to}
                 to={link.to}
                 onClick={() => setMobileOpen(false)}
-                className="block text-sm font-medium text-slate-700 hover:text-blue-700 py-2 px-3 rounded-lg hover:bg-slate-50 transition-colors"
+                className="flex items-center gap-2 text-sm font-medium text-slate-700 hover:text-blue-700 py-2 px-3 rounded-lg hover:bg-slate-50 transition-colors"
               >
+                {link.icon}
                 {link.label}
               </Link>
             )

@@ -17,6 +17,7 @@ export const ROUTES = {
   MY_INDIVIDUAL_HISTORY: "/my-individual-bookings",
   ABOUT: "/about",
   CONTACT: "/contact",
+  MAKE_TICKET: "/make-ticket",
   DASHBOARD: "/dashboard",
   STUDENT_DASHBOARD: "/student-dashboard",
   STUDENT_PROFILE: "/profile",
