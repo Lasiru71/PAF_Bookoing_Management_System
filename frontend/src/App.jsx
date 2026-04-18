@@ -1,12 +1,17 @@
-// App.jsx — root component, wraps everything in AuthProvider
 import { AuthProvider } from "./context/AuthContext";
+import { GoogleOAuthProvider } from "@react-oauth/google";
 import AppRouter from "./router/AppRouter";
 
 const App = () => {
+  // Actual Google Client ID
+  const GOOGLE_CLIENT_ID = "785425901947-3hqanauqvhmcujj1fhuu8g6a4q3bf3cm.apps.googleusercontent.com";
+
   return (
-    <AuthProvider>
-      <AppRouter />
-    </AuthProvider>
+    <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+      <AuthProvider>
+        <AppRouter />
+      </AuthProvider>
+    </GoogleOAuthProvider>
   );
 };
 

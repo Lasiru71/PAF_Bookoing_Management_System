@@ -5,7 +5,8 @@ import { LogIn, ArrowLeft } from "lucide-react";
 import Input from "../components/common/Input";
 import Button from "../components/common/Button";
 import Logo from "../components/common/Logo";
-import { login } from "../services/authService";
+import { GoogleLogin } from "@react-oauth/google";
+import { login, googleLogin } from "../services/authService";
 import { useAuth } from "../context/AuthContext";
 import { ROUTES } from "../utils/constants";
 
@@ -16,6 +17,7 @@ const LoginPage = () => {
   const [form, setForm] = useState({ email: "", password: "" });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [serverError, setServerError] = useState("");
 
   // Validate form fields
@@ -152,11 +154,44 @@ const LoginPage = () => {
                 required
               />
               
-              <div className="pt-2">
+              <div className="pt-2 space-y-4">
                 <Button type="submit" fullWidth loading={loading} className="py-4 rounded-2xl shadow-xl shadow-blue-500/20 bg-blue-700 hover:bg-blue-800 text-lg font-bold transition-all hover:scale-[1.01]">
                   <LogIn className="h-5 w-5 mr-3" />
                   Sign In
                 </Button>
+
+                <div className="relative flex items-center justify-center py-2">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-slate-200"></div>
+                  </div>
+                  <span className="relative px-4 bg-white text-xs font-bold text-slate-400 uppercase tracking-widest">Or continue with</span>
+                </div>
+
+                <div className="flex justify-center transition-all hover:scale-[1.02] active:scale-[0.98]">
+                  <div className="w-full overflow-hidden rounded-xl border border-slate-200 shadow-sm hover:shadow-md">
+                    <GoogleLogin
+                      useOneTap
+                      theme="outline"
+                      size="large"
+                      width="100%"
+                      onSuccess={async (credentialResponse) => {
+                        setGoogleLoading(true);
+                        try {
+                          const { data } = await googleLogin({ idToken: credentialResponse.credential });
+                          loginUser(data);
+                          navigate(ROUTES.HOME);
+                        } catch (err) {
+                          setServerError("Google authentication failed. Please try again.");
+                        } finally {
+                          setGoogleLoading(false);
+                        }
+                      }}
+                      onError={() => {
+                        setServerError("Google login encountered an error.");
+                      }}
+                    />
+                  </div>
+                </div>
               </div>
             </form>
 
