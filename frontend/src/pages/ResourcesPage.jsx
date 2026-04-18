@@ -18,7 +18,7 @@ import Button from "../components/common/Button";
 
 const categories = [
   "All", 
-  "L Halls", "Labs", "Meeting", "Common",
+  "L Halls", "Labs", "Meeting", "Common", "Sports Facility", "Study Area",
   "Equipment", "Electronics", "Audio/Visual", "Furniture"
 ];
 

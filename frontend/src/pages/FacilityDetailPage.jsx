@@ -79,7 +79,7 @@ const getAmenities = (category) => {
         { icon: Users, label: "Quiet Environment", available: true },
         { icon: Wind, label: "Air Purifiers", available: true },
       ];
-    case "Sports":
+    case "Sports Facility":
       return [
         { icon: Wind, label: "Ventilation", available: true },
         { icon: Users, label: "Changing Rooms", available: true },
@@ -125,7 +125,7 @@ const getRules = (category) => {
         "Personal belongings should not be left unattended.",
         ...common,
       ];
-    case "Sports":
+    case "Sports Facility":
       return [
         "Appropriate sports attire and non-marking shoes are mandatory.",
         "Users are responsible for returning any borrowed equipment.",
@@ -408,8 +408,8 @@ const FacilityDetailPage = () => {
                     {resource.category === "Meeting" && " professional meeting room ideal for faculty discussions, departmental meetings, and small-group workshops. Offers a quiet, soundproof environment with modern conferencing tools."}
                     {resource.category === "Common" && " shared campus space perfect for student collaboration, informal study sessions, and leisure activities. An open-access zone designed to foster community engagement."}
                     {resource.category === "Study Area" && " dedicated quiet zone engineered for focused student learning and academic reading. Features individual study pods and collaborative seating arrangements."}
-                    {resource.category === "Sports" && " dynamic athletic facility intended for physical education, university sports teams, and recreational student activities. Subject to health and safety regulations."}
-                    {!["L Halls", "Labs", "Meeting", "Common", "Study Area", "Sports"].includes(resource.category) && ` campus resource categorized under ${resource.category}. Available for booking and general university use. Contact administration for specific usage guidelines.`}
+                    {resource.category === "Sports Facility" && " dynamic athletic facility intended for physical education, university sports teams, and recreational student activities. Subject to health and safety regulations."}
+                    {!["L Halls", "Labs", "Meeting", "Common", "Study Area", "Sports Facility"].includes(resource.category) && ` campus resource categorized under ${resource.category}. Available for booking and general university use. Contact administration for specific usage guidelines.`}
                   </p>
                 )}
                 <p className="text-slate-500 mt-4 text-sm">
