@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { facilityService } from "../services/facilityService";
 import MainLayout from "../components/layout/MainLayout";
+import { renderLocation } from "../utils/formatters";
 import {
   MapPin,
   Users,
@@ -184,6 +185,16 @@ const FacilityDetailPage = () => {
   const occupancyPercent = resource.capacity > 0
     ? Math.round(((resource.capacity - resource.availableSpaces) / resource.capacity) * 100)
     : 0;
+  
+  const isDistributed = resource.location?.startsWith("DISTRIBUTED:");
+  let distributionData = null;
+  if (isDistributed) {
+    try {
+      distributionData = JSON.parse(resource.location.replace("DISTRIBUTED:", ""));
+    } catch (e) {
+      console.error("Failed to parse distribution data", e);
+    }
+  }
 
   const dayLabels = ["Today", "Tomorrow"];
   for (let i = 2; i < 7; i++) {
@@ -244,15 +255,24 @@ const FacilityDetailPage = () => {
             <div className="flex flex-wrap items-center gap-6 text-white/80 text-sm font-medium">
               <span className="flex items-center gap-2">
                 <MapPin className="h-4 w-4" />
-                {resource.location}
+                {isDistributed ? "Distributed across Campus" : resource.location}
               </span>
               <span className="flex items-center gap-2">
-                <Users className="h-4 w-4" />
-                Capacity: {resource.capacity} seats
+                {["Equipment", "Electronics", "Audio/Visual", "Furniture"].includes(resource.category) ? (
+                  <>
+                    <Zap className="h-4 w-4" />
+                    Quantity: {resource.capacity} units
+                  </>
+                ) : (
+                  <>
+                    <Users className="h-4 w-4" />
+                    Capacity: {resource.capacity} seats
+                  </>
+                )}
               </span>
               <span className="flex items-center gap-2">
                 <Sparkles className="h-4 w-4" />
-                Available: {resource.availableSpaces} seats
+                {["Equipment", "Electronics", "Audio/Visual", "Furniture"].includes(resource.category) ? `Available: ${resource.availableSpaces} units` : `Available: ${resource.availableSpaces} seats`}
               </span>
             </div>
           </div>
@@ -264,8 +284,18 @@ const FacilityDetailPage = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
-              { label: "Total Capacity", value: resource.capacity, icon: Users, gradient: "from-blue-500 to-blue-700" },
-              { label: "Available Seats", value: resource.availableSpaces, icon: CheckCircle2, gradient: "from-emerald-500 to-emerald-700" },
+              { 
+                label: ["Equipment", "Electronics", "Audio/Visual", "Furniture"].includes(resource.category) ? "Total Quantity" : "Total Capacity", 
+                value: ["Equipment", "Electronics", "Audio/Visual", "Furniture"].includes(resource.category) ? `${resource.capacity} Units` : `${resource.capacity} Seats`, 
+                icon: ["Equipment", "Electronics", "Audio/Visual", "Furniture"].includes(resource.category) ? Zap : Users, 
+                gradient: "from-blue-500 to-blue-700" 
+              },
+              { 
+                label: ["Equipment", "Electronics", "Audio/Visual", "Furniture"].includes(resource.category) ? "Available Units" : "Available Seats", 
+                value: resource.availableSpaces, 
+                icon: CheckCircle2, 
+                gradient: "from-emerald-500 to-emerald-700" 
+              },
               { label: "Occupancy", value: `${occupancyPercent}%`, icon: Zap, gradient: "from-violet-500 to-violet-700" },
               { label: "Status", value: resource.status, icon: AlertCircle, gradient: resource.status === "Available" ? "from-emerald-500 to-emerald-700" : "from-red-500 to-red-700" },
             ].map((stat, i) => (
@@ -311,9 +341,54 @@ const FacilityDetailPage = () => {
                   {!["L Halls", "Labs", "Meeting", "Common"].includes(resource.category) && ` campus resource categorized under ${resource.category}. Available for booking and general university use. Contact administration for specific usage guidelines.`}
                 </p>
                 <p className="text-slate-500 mt-4 text-sm">
-                  Located at <span className="font-semibold text-slate-700">{resource.location}</span>, this facility is easily accessible and well-maintained by our campus infrastructure team.
+                  {isDistributed ? (
+                    "This resource is distributed across multiple locations on campus to ensure maximum accessibility for students and staff."
+                  ) : (
+                    <>Located at <span className="font-semibold text-slate-700">{renderLocation(resource.location)}</span>, this facility is easily accessible and well-maintained by our campus infrastructure team.</>
+                  )}
                 </p>
               </div>
+
+              {/* ── Location Distribution (Only for Distributed) ── */}
+              {isDistributed && distributionData && (
+                <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100 overflow-hidden">
+                  <h2 className="text-2xl font-black text-slate-800 mb-6 flex items-center gap-3">
+                    <div className="h-9 w-9 bg-blue-50 rounded-xl flex items-center justify-center">
+                      <MapPin className="h-5 w-5 text-blue-600" />
+                    </div>
+                    Location Distribution
+                  </h2>
+                  <div className="overflow-x-auto rounded-2xl border border-slate-100">
+                    <table className="w-full text-left">
+                      <thead className="bg-slate-50 border-b border-slate-100">
+                        <tr>
+                          <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Building / Block</th>
+                          <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Floor / Level</th>
+                          <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Qty</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-50">
+                        {distributionData.locations.map((loc, idx) => (
+                          <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                            <td className="px-6 py-4">
+                              <div className="flex items-center gap-2">
+                                <Building2 className="h-4 w-4 text-slate-400" />
+                                <span className="text-sm font-bold text-slate-700">{loc.block}</span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 text-sm font-semibold text-slate-500">{loc.level}</td>
+                            <td className="px-6 py-4 text-right">
+                              <span className="inline-flex px-3 py-1 bg-blue-50 text-blue-600 rounded-lg text-xs font-black">
+                                {loc.quantity}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
 
               {/* ── Amenities & Features ── */}
               <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
@@ -440,7 +515,12 @@ const FacilityDetailPage = () => {
                       <Users className="h-5 w-5 text-blue-600" />
                       <div>
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Available Now</p>
-                        <p className="text-lg font-black text-slate-800">{resource.availableSpaces} <span className="text-sm font-semibold text-slate-500">/ {resource.capacity} seats</span></p>
+                        <p className="text-lg font-black text-slate-800">
+                          {resource.availableSpaces} 
+                          <span className="text-sm font-semibold text-slate-500">
+                            {["Equipment", "Electronics", "Audio/Visual", "Furniture"].includes(resource.category) ? ` / ${resource.capacity} units` : ` / ${resource.capacity} seats`}
+                          </span>
+                        </p>
                       </div>
                     </div>
 
@@ -494,7 +574,9 @@ const FacilityDetailPage = () => {
                       <DoorOpen className="h-5 w-5 text-violet-600 flex-shrink-0" />
                       <div>
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Floor / Level</p>
-                        <p className="text-sm font-bold text-slate-800">{resource.location?.split(",")[1]?.trim() || "—"}</p>
+                        <p className="text-sm font-bold text-slate-800">
+                          {isDistributed ? "See Distribution Table" : (resource.location?.split(",").slice(1).map(l => l.trim()).join(", ") || "—")}
+                        </p>
                       </div>
                     </div>
                   </div>
