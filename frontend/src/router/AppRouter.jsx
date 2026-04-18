@@ -10,12 +10,14 @@ import ResourcesPage from "../pages/ResourcesPage";
 import MyBookingsPage from "../pages/MyBookingsPage";
 import AboutPage from "../pages/AboutPage";
 import ContactPage from "../pages/ContactPage";
+import MakeTicketPage from "../pages/MakeTicketPage";
 import DashboardPage from "../pages/DashboardPage";
 import StudentDashboardPage from "../pages/StudentDashboardPage";
 import StudentProfilePage from "../pages/StudentProfilePage";
 import AdminDashboardPage from "../pages/AdminDashboardPage";
 import AdminProfilePage from "../pages/AdminProfilePage";
 import TechnicianDashboardPage from "../pages/TechnicianDashboardPage";
+import TrackTicketPage from "../pages/TrackTicketPage";
 import UnauthorizedPage from "../pages/UnauthorizedPage";
 import BookingPage from "../pages/BookingPage";
 import IndividualBookingPage from "../pages/IndividualBookingPage";
@@ -58,6 +60,14 @@ const AppRouter = () => {
         <Route
           path={ROUTES.MY_INDIVIDUAL_HISTORY}
           element={<ProtectedRoute><MyIndividualHistoryPage /></ProtectedRoute>}
+        />
+        <Route
+          path={ROUTES.MAKE_TICKET}
+          element={<ProtectedRoute><MakeTicketPage /></ProtectedRoute>}
+        />
+        <Route
+          path={ROUTES.TRACK_TICKET}
+          element={<ProtectedRoute><TrackTicketPage /></ProtectedRoute>}
         />
 
         {/* Smart dashboard redirect */}

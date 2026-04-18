@@ -18,11 +18,13 @@ export const ROUTES = {
   MY_INDIVIDUAL_HISTORY: "/my-individual-bookings",
   ABOUT: "/about",
   CONTACT: "/contact",
+  MAKE_TICKET: "/make-ticket",
   DASHBOARD: "/dashboard",
   STUDENT_DASHBOARD: "/student-dashboard",
   STUDENT_PROFILE: "/profile",
   ADMIN_DASHBOARD: "/admin",
   ADMIN_PROFILE: "/admin/profile",
   TECHNICIAN_DASHBOARD: "/technician",
+  TRACK_TICKET: "/track-ticket",
   UNAUTHORIZED: "/unauthorized",
 };

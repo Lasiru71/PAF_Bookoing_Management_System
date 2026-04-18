@@ -7,6 +7,9 @@ import AppRouter from "./router/AppRouter";
 const GOOGLE_CLIENT_ID = "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com";
 
 const App = () => {
+  // Actual Google Client ID
+  const GOOGLE_CLIENT_ID = "785425901947-3hqanauqvhmcujj1fhuu8g6a4q3bf3cm.apps.googleusercontent.com";
+
   return (
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
       <AuthProvider>
