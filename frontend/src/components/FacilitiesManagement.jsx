@@ -28,8 +28,10 @@ import {
   MoreHorizontal,
   ChevronLeft,
   Image as ImageIcon,
-  UploadCloud
+  UploadCloud,
+  Copy
 } from "lucide-react";
+import { renderLocation } from "../utils/formatters";
 import { facilityService } from "../services/facilityService";
 
 // Mock Data
@@ -73,12 +75,14 @@ export default function FacilitiesManagement() {
     name: "",
     category: "L Halls",
     block: "Main Building",
-    level: "Level 1",
+    level: [],
     capacity: "",
     status: "Active",
     startTime: "08:00 AM",
     endTime: "06:00 PM",
-    image: ""
+    image: "",
+    isDistributed: false,
+    locationBatches: [{ block: "Main Building", level: "Level 1", quantity: "" }]
   });
 
   const currentItems = facilities.filter(f => {
@@ -95,14 +99,65 @@ export default function FacilitiesManagement() {
   ];
 
   const handleEdit = (facility) => {
-    // Map existing data to new form structure if needed
+    const isDist = facility.location?.startsWith("DISTRIBUTED:");
+    let batches = [{ block: "Main Building", level: "Level 1", quantity: "" }];
+    let block = "Main Building";
+    let level = [];
+
+    if (isDist) {
+      try {
+        const data = JSON.parse(facility.location.replace("DISTRIBUTED:", ""));
+        batches = data.locations || batches;
+      } catch (e) {
+        console.error("Failed to parse distributed location", e);
+      }
+    } else {
+      block = facility.location?.split(',')[0] || "Main Building";
+      level = facility.location?.split(',').slice(1).map(l => l.trim()) || [];
+    }
+
     setFormData({
       ...facility,
-      block: facility.location?.split(',')[0] || "Block A",
-      level: facility.location?.split(',')[1]?.trim() || "Level 1",
+      block,
+      level,
+      isDistributed: isDist,
+      locationBatches: batches,
       status: facility.status === "Available" ? "Active" : (facility.status === "Maintenance" ? "Maintenance" : "Out of Service"),
-      startTime: "08:00 AM",
-      endTime: "06:00 PM",
+      startTime: facility.startTime || "08:00 AM",
+      endTime: facility.endTime || "06:00 PM",
+      image: facility.image || ""
+    });
+    setView("manage");
+  };
+
+  const handleDuplicate = (facility) => {
+    const isDist = facility.location?.startsWith("DISTRIBUTED:");
+    let batches = [{ block: "Main Building", level: "Level 1", quantity: "" }];
+    let block = "Main Building";
+    let level = [];
+
+    if (isDist) {
+      try {
+        const data = JSON.parse(facility.location.replace("DISTRIBUTED:", ""));
+        batches = data.locations || batches;
+      } catch (e) {
+        console.error("Failed to parse distributed location", e);
+      }
+    } else {
+      block = facility.location?.split(',')[0] || "Main Building";
+      level = facility.location?.split(',').slice(1).map(l => l.trim()) || [];
+    }
+
+    setFormData({
+      ...facility,
+      id: null, // Set ID to null for new record
+      block,
+      level,
+      isDistributed: isDist,
+      locationBatches: batches,
+      status: "Active", // Reset status to active for the new copy
+      startTime: facility.startTime || "08:00 AM",
+      endTime: facility.endTime || "06:00 PM",
       image: facility.image || ""
     });
     setView("manage");
@@ -114,12 +169,14 @@ export default function FacilitiesManagement() {
       name: "", 
       category: activeTab === "Facilities" ? "L Halls" : "Equipment", 
       block: "Main Building", 
-      level: "Level 1", 
+      level: [], 
       capacity: "", 
       status: "Active", 
       startTime: "08:00 AM", 
       endTime: "06:00 PM",
-      image: ""
+      image: "",
+      isDistributed: false,
+      locationBatches: [{ block: "Main Building", level: "Level 1", quantity: "" }]
     });
     setView("manage");
   };
@@ -145,11 +202,21 @@ export default function FacilitiesManagement() {
       return;
     }
 
+    let locationStr = "";
+    let totalCapacity = parseInt(formData.capacity) || 0;
+
+    if (formData.isDistributed) {
+      locationStr = `DISTRIBUTED:${JSON.stringify({ locations: formData.locationBatches.filter(b => b.quantity > 0) })}`;
+      totalCapacity = formData.locationBatches.reduce((sum, b) => sum + (parseInt(b.quantity) || 0), 0);
+    } else {
+      locationStr = formData.level.length > 0 ? `${formData.block}, ${formData.level.join(', ')}` : formData.block;
+    }
+
     const updatedFacility = {
       ...formData,
-      location: `${formData.block}, ${formData.level}`,
-      capacity: activeTab === "Facilities" ? (parseInt(formData.capacity) || 0) : 1,
-      availableSpaces: activeTab === "Facilities" ? (parseInt(formData.capacity) || 0) : 1,
+      location: locationStr,
+      capacity: totalCapacity,
+      availableSpaces: totalCapacity,
       status: formData.status === "Active" ? "Available" : (formData.status === "Maintenance" ? "Maintenance" : "Booked")
     };
 
@@ -244,8 +311,8 @@ export default function FacilitiesManagement() {
                   />
                 </div>
 
-                {/* Grid row 1: Type and Location Block */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Grid row 1: Category and Capacity */}
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-end">
                    <div className="space-y-2">
                       <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest ml-1">Category <span className="text-red-500">*</span></label>
                       <div className="relative">
@@ -275,107 +342,237 @@ export default function FacilitiesManagement() {
                       </div>
                    </div>
                    <div className="space-y-2">
-                      <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest ml-1">Location <span className="text-red-500">*</span></label>
-                      <div className="relative">
-                        <select 
-                          value={formData.block}
-                          onChange={(e) => setFormData({...formData, block: e.target.value})}
-                          className="w-full px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-semibold text-slate-700 outline-none appearance-none cursor-pointer focus:ring-2 focus:ring-blue-500/20 shadow-inner"
-                        >
-                          <option>Select block</option>
-                          <option>Main Building</option>
-                          <option>G Block</option>
-                          <option>F Block</option>
-                          <option>Engineering Block</option>
-                          <option>Business Block</option>
-                          <option>Arts Pavillion</option>
-                          <option>Science Block</option>
-                          <option>Student Hub</option>
-                        </select>
-                        <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                      <div className="flex items-center justify-between ml-1 mb-1">
+                        <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest">
+                          {activeTab === "Facilities" ? "Capacity / Seats" : "Quantity / Units"} <span className="text-red-500">*</span>
+                        </label>
+                        {activeTab === "Resources" && (
+                          <button 
+                            onClick={() => setFormData({...formData, isDistributed: !formData.isDistributed})}
+                            className={`text-[10px] font-black px-2 py-0.5 rounded-md transition-all ${formData.isDistributed ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-100 text-slate-400 hover:text-slate-600'}`}
+                          >
+                            {formData.isDistributed ? 'DISTRIBUTED ACTIVE' : 'ENABLE DISTRIBUTION'}
+                          </button>
+                        )}
                       </div>
-                   </div>
+                      <input 
+                        type="number" 
+                        value={formData.isDistributed ? formData.locationBatches.reduce((sum, b) => sum + (parseInt(b.quantity) || 0), 0) : formData.capacity}
+                        onChange={(e) => !formData.isDistributed && setFormData({...formData, capacity: e.target.value})}
+                        disabled={formData.isDistributed}
+                        className={`w-full px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-semibold text-slate-700 focus:ring-2 focus:ring-blue-500/20 shadow-inner transition-all ${formData.isDistributed ? 'opacity-50 cursor-not-allowed bg-slate-100 text-indigo-600' : ''}`}
+                        placeholder={activeTab === "Facilities" ? "Enter capacity" : "Enter quantity"} 
+                      />
+                    </div>
                 </div>
 
-                {/* Grid row 2: Capacity and Availability From */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                   {activeTab === "Facilities" && (
-                     <div className="space-y-2">
-                        <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest ml-1">Capacity / Seats <span className="text-red-500">*</span></label>
-                        <input 
-                          type="number" 
-                          value={formData.capacity}
-                          onChange={(e) => setFormData({...formData, capacity: e.target.value})}
-                          className="w-full px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-semibold text-slate-700 focus:ring-2 focus:ring-blue-500/20 shadow-inner"
-                          placeholder="Enter capacity" 
-                        />
-                     </div>
-                   )}
-                   <div className="space-y-2">
-                      <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest ml-1">Availability Time <span className="text-red-500">*</span></label>
+                {/* Grid row 2: Location (Block & Level) */}
+                <div className="space-y-4 pt-4">
+                    <div className="flex items-center justify-between mb-2">
+                        <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest ml-1">Location Detail <span className="text-red-500">*</span></label>
+                        {formData.isDistributed && (
+                          <button 
+                            onClick={() => setFormData({
+                              ...formData, 
+                              locationBatches: [...formData.locationBatches, { block: "Main Building", level: "Level 1", quantity: "" }]
+                            })}
+                            className="text-[10px] font-black text-white bg-blue-600 px-3 py-1 rounded-full hover:bg-blue-700 shadow-sm flex items-center gap-1 transition-all"
+                          >
+                            <Plus className="h-3 w-3" /> ADD BATCH
+                          </button>
+                        )}
+                    </div>
+                    
+                    {formData.isDistributed ? (
+                      <div className="space-y-4">
+                        {formData.locationBatches.map((batch, index) => (
+                          <div key={index} className="grid grid-cols-1 md:grid-cols-4 gap-4 p-5 bg-slate-50 rounded-2xl border border-slate-100 relative group animate-in slide-in-from-left-2 duration-300">
+                             <div className="relative">
+                               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Block</p>
+                               <select 
+                                 value={batch.block}
+                                 onChange={(e) => {
+                                   const newBatches = [...formData.locationBatches];
+                                   newBatches[index].block = e.target.value;
+                                   setFormData({...formData, locationBatches: newBatches});
+                                 }}
+                                 className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none appearance-none cursor-pointer focus:ring-2 focus:ring-blue-500/10"
+                               >
+                                 <option>Main Building</option>
+                                 <option>G Block</option>
+                                 <option>F Block</option>
+                                 <option>Engineering Block</option>
+                                 <option>Business Block</option>
+                                 <option>Arts Pavillion</option>
+                                 <option>Science Block</option>
+                                 <option>Student Hub</option>
+                               </select>
+                               <ChevronDown className="absolute right-3 bottom-3 h-3 w-3 text-slate-400 pointer-events-none" />
+                             </div>
+                             <div className="relative">
+                               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Level</p>
+                               <select 
+                                 value={batch.level}
+                                 onChange={(e) => {
+                                   const newBatches = [...formData.locationBatches];
+                                   newBatches[index].level = e.target.value;
+                                   setFormData({...formData, locationBatches: newBatches});
+                                 }}
+                                 className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none appearance-none cursor-pointer focus:ring-2 focus:ring-blue-500/10"
+                               >
+                                 {[...Array(10)].map((_, i) => (
+                                   <option key={i+1} value={`Level ${i+1}`}>Level {i+1}</option>
+                                 ))}
+                                 <option value="Basement">Basement</option>
+                               </select>
+                               <ChevronDown className="absolute right-3 bottom-3 h-3 w-3 text-slate-400 pointer-events-none" />
+                             </div>
+                             <div className="relative">
+                               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Quantity</p>
+                               <input 
+                                 type="number" 
+                                 value={batch.quantity}
+                                 onChange={(e) => {
+                                   const newBatches = [...formData.locationBatches];
+                                   newBatches[index].quantity = e.target.value;
+                                   setFormData({...formData, locationBatches: newBatches});
+                                 }}
+                                 className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:ring-2 focus:ring-blue-500/10"
+                                 placeholder="Qty" 
+                               />
+                             </div>
+                             <div className="flex items-end justify-center pb-1">
+                                <button 
+                                  onClick={() => {
+                                    if (formData.locationBatches.length > 1) {
+                                      setFormData({
+                                        ...formData, 
+                                        locationBatches: formData.locationBatches.filter((_, i) => i !== index)
+                                      });
+                                    } else {
+                                      alert("At least one location is required in distributed mode.");
+                                    }
+                                  }}
+                                  className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                             </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="relative">
+                          <select 
+                            value={formData.block}
+                            onChange={(e) => setFormData({...formData, block: e.target.value})}
+                            className="w-full px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-semibold text-slate-700 outline-none appearance-none cursor-pointer focus:ring-2 focus:ring-blue-500/20 shadow-inner"
+                          >
+                            <option>Select Block</option>
+                            <option>Main Building</option>
+                            <option>G Block</option>
+                            <option>F Block</option>
+                            <option>Engineering Block</option>
+                            <option>Business Block</option>
+                            <option>Arts Pavillion</option>
+                            <option>Science Block</option>
+                            <option>Student Hub</option>
+                          </select>
+                          <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                        </div>
+                        <div className="md:col-span-2">
+                          <div className="bg-slate-50 rounded-2xl p-4 shadow-inner border border-transparent focus-within:border-blue-200 transition-all">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Select Levels / Floors (Multi-Select)</p>
+                            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
+                              {[...Array(10)].map((_, i) => {
+                                const levelVal = `Level ${i+1}`;
+                                const isSelected = formData.level.includes(levelVal);
+                                return (
+                                  <button
+                                    key={i}
+                                    type="button"
+                                    onClick={() => {
+                                      const newLevels = isSelected 
+                                        ? formData.level.filter(l => l !== levelVal)
+                                        : [...formData.level, levelVal];
+                                      setFormData({...formData, level: newLevels});
+                                    }}
+                                    className={`py-2 px-3 rounded-xl text-xs font-bold transition-all border ${
+                                      isSelected 
+                                        ? "bg-blue-600 border-blue-600 text-white shadow-md shadow-blue-200 scale-[1.05]" 
+                                        : "bg-white border-slate-200 text-slate-500 hover:border-blue-300 hover:text-blue-600"
+                                    }`}
+                                  >
+                                    L{i+1}
+                                  </button>
+                                );
+                              })}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const isSelected = formData.level.includes("Basement");
+                                  const newLevels = isSelected 
+                                    ? formData.level.filter(l => l !== "Basement")
+                                    : [...formData.level, "Basement"];
+                                  setFormData({...formData, level: newLevels});
+                                }}
+                                className={`py-2 px-3 rounded-xl text-xs font-bold transition-all border ${
+                                  formData.level.includes("Basement")
+                                    ? "bg-blue-600 border-blue-600 text-white shadow-md shadow-blue-200 scale-[1.05]" 
+                                    : "bg-white border-slate-200 text-slate-500 hover:border-blue-300 hover:text-blue-600"
+                                }`}
+                              >
+                                B
+                              </button>
+                            </div>
+                            {formData.level.length > 0 && (
+                              <div className="mt-4 flex flex-wrap gap-2 pt-3 border-t border-slate-200/50">
+                                {formData.level.map((l, i) => (
+                                  <span key={i} className="px-3 py-1 bg-blue-50 text-blue-600 rounded-full text-[10px] font-black uppercase flex items-center gap-1.5 border border-blue-100">
+                                    {l}
+                                    <button onClick={() => setFormData({...formData, level: formData.level.filter(lvl => lvl !== l)})} className="hover:text-red-500">
+                                      <X className="h-3 w-3" />
+                                    </button>
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                </div>
+
+                {/* Grid row 3: Availability Time (Start & End) */}
+                <div className="space-y-2">
+                    <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest ml-1">Availability Hours <span className="text-red-500">*</span></label>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="flex items-center gap-2 bg-slate-50 rounded-2xl p-1 border border-transparent focus-within:border-blue-200 focus-within:bg-white transition-all shadow-inner">
                         <input 
                           type="text" 
                           value={formData.startTime}
                           onChange={(e) => setFormData({...formData, startTime: e.target.value})}
                           className="flex-1 px-4 py-2.5 bg-transparent border-none text-sm font-semibold outline-none text-slate-600"
-                          placeholder="From (e.g., 08:00 AM)" 
+                          placeholder="From (08:00 AM)" 
                         />
                         <div className="p-2.5">
                            <Clock className="h-4 w-4 text-slate-400" />
                         </div>
                       </div>
-                   </div>
-                </div>
-
-                {/* Row 3: Split Location Detail and End Time */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                   <div className="space-y-2 relative">
-                      <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest ml-1 invisible capitalize h-0">Location Deep</label>
-                      <div className="flex gap-4 pt-1">
-                        <select 
-                          value={formData.block}
-                          onChange={(e) => setFormData({...formData, block: e.target.value})}
-                          className="flex-1 px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-semibold text-slate-700 outline-none appearance-none cursor-pointer focus:ring-2 focus:ring-blue-500/20 shadow-inner"
-                        >
-                          <option>Block</option>
-                          <option>Main Building</option>
-                          <option>G Block</option>
-                          <option>F Block</option>
-                          <option>Engineering Block</option>
-                          <option>Business Block</option>
-                          <option>Arts Pavillion</option>
-                          <option>Science Block</option>
-                          <option>Student Hub</option>
-                        </select>
-                        <select 
-                          value={formData.level}
-                          onChange={(e) => setFormData({...formData, level: e.target.value})}
-                          className="flex-2 px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-semibold text-slate-700 outline-none appearance-none cursor-pointer focus:ring-2 focus:ring-blue-500/20 shadow-inner"
-                        >
-                          <option>Select level</option>
-                          {[...Array(10)].map((_, i) => (
-                            <option key={i+1} value={`Level ${i+1}`}>Level {i+1}</option>
-                          ))}
-                          <option value="Basement">Basement</option>
-                        </select>
-                      </div>
-                   </div>
-                   <div className="space-y-2">
-                      <label className="text-[11px] font-black text-white h-0 overflow-hidden">End Time</label>
                       <div className="flex items-center gap-2 bg-slate-50 rounded-2xl p-1 border border-transparent focus-within:border-blue-200 focus-within:bg-white transition-all shadow-inner">
                         <input 
                           type="text" 
                           value={formData.endTime}
                           onChange={(e) => setFormData({...formData, endTime: e.target.value})}
                           className="flex-1 px-4 py-2.5 bg-transparent border-none text-sm font-semibold outline-none text-slate-600"
-                          placeholder="To (e.g., 06:00 PM)" 
+                          placeholder="To (06:00 PM)" 
                         />
                         <div className="p-2.5">
                            <Clock className="h-4 w-4 text-slate-400" />
                         </div>
                       </div>
-                   </div>
+                    </div>
                 </div>
 
                 {/* Image Upload/Paste Section */}
@@ -588,7 +785,7 @@ export default function FacilitiesManagement() {
                       <div className="pt-2 flex items-center justify-between">
                          <div className="flex items-center gap-2 text-slate-500">
                            <MapPin className="h-4 w-4 opacity-50 text-blue-500" />
-                           <span className="text-xs font-bold">{f.location}</span>
+                           <span className="text-xs font-bold">{renderLocation(f.location)}</span>
                          </div>
                          <div className="flex gap-1.5">
                             <button onClick={() => handleEdit(f)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all" title="Edit">
@@ -620,16 +817,17 @@ export default function FacilitiesManagement() {
                       <tr key={f.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors group">
                         <td className="px-8 py-5"><span className="text-sm font-black text-slate-800">{f.name}</span></td>
                         <td className="px-8 py-5 text-xs font-bold text-slate-500">{f.category}</td>
-                        <td className="px-8 py-5 text-xs font-bold text-slate-500">{f.location}</td>
+                         <td className="px-8 py-5 text-xs font-bold text-slate-500">{renderLocation(f.location)}</td>
                         <td className="px-8 py-5 text-center">
                            <span className={`inline-flex px-4 py-1.5 rounded-full border text-[10px] font-black ${statusStyles[f.status]}`}>
                              {f.status.toUpperCase()}
                            </span>
                         </td>
                         <td className="px-8 py-5 text-right">
-                           <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                             <button onClick={() => handleEdit(f)} className="p-2 text-slate-400 hover:text-blue-600 transition-all"><Edit className="h-4 w-4"/></button>
-                             <button onClick={() => handleDelete(f.id)} className="p-2 text-slate-400 hover:text-red-500 transition-all"><Trash2 className="h-4 w-4"/></button>
+                         <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                             <button onClick={() => handleDuplicate(f)} className="p-2 text-slate-400 hover:text-emerald-600 transition-all" title="Duplicate"><Copy className="h-4 w-4"/></button>
+                             <button onClick={() => handleEdit(f)} className="p-2 text-slate-400 hover:text-blue-600 transition-all" title="Edit"><Edit className="h-4 w-4"/></button>
+                             <button onClick={() => handleDelete(f.id)} className="p-2 text-slate-400 hover:text-red-500 transition-all" title="Delete"><Trash2 className="h-4 w-4"/></button>
                            </div>
                         </td>
                       </tr>
