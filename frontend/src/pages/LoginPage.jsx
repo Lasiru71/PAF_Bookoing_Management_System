@@ -9,7 +9,6 @@ import { GoogleLogin } from "@react-oauth/google";
 import { login, googleLogin } from "../services/authService";
 import { useAuth } from "../context/AuthContext";
 import { ROUTES } from "../utils/constants";
-import { GoogleLogin } from "@react-oauth/google";
 
 const LoginPage = () => {
   const navigate = useNavigate();
@@ -18,7 +17,6 @@ const LoginPage = () => {
   const [form, setForm] = useState({ email: "", password: "" });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
   const [serverError, setServerError] = useState("");
 
   // Validate form fields
@@ -55,15 +53,6 @@ const LoginPage = () => {
     }
   };
 
-  const handleGoogleSuccess = (credentialResponse) => {
-    console.log("Google Login Response:", credentialResponse);
-    // TODO: Send token to backend for verification
-    setServerError("Google Login is configured! You can now integrate this with your backend.");
-  };
-
-  const handleGoogleError = () => {
-    setServerError("Google Login failed. Please try again.");
-  };
 
   return (
     <div className="relative min-h-screen bg-gradient-to-br from-blue-700 via-blue-800 to-indigo-950 flex flex-col lg:grid lg:grid-cols-2 overflow-hidden">
@@ -186,15 +175,12 @@ const LoginPage = () => {
                       size="large"
                       width="100%"
                       onSuccess={async (credentialResponse) => {
-                        setGoogleLoading(true);
                         try {
                           const { data } = await googleLogin({ idToken: credentialResponse.credential });
                           loginUser(data);
                           navigate(ROUTES.HOME);
-                        } catch (err) {
+                        } catch {
                           setServerError("Google authentication failed. Please try again.");
-                        } finally {
-                          setGoogleLoading(false);
                         }
                       }}
                       onError={() => {
@@ -205,25 +191,6 @@ const LoginPage = () => {
                 </div>
               </div>
 
-              <div className="relative my-8">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-slate-200"></div>
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-white px-4 text-slate-500 font-bold tracking-widest">Or continue with</span>
-                </div>
-              </div>
-
-              <div className="flex justify-center">
-                <GoogleLogin
-                  onSuccess={handleGoogleSuccess}
-                  onError={handleGoogleError}
-                  theme="outline"
-                  shape="circle"
-                  text="signin_with"
-                  width="100%"
-                />
-              </div>
             </form>
 
             <div className="mt-10 pt-8 border-t border-slate-100/50">
