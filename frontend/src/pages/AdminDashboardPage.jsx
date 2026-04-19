@@ -9,9 +9,9 @@ import {
   Activity, Home, ChevronRight, X, CheckCircle, Clock, Edit3, User, MapPin, Calendar,
   Globe, Lock, Palette, Server, Mail, Smartphone, Moon, Sun, Database, RefreshCw, Save, Download,
   FileText, LayoutGrid, Plus, Minus, MessageSquare, CalendarDays, AlertCircle, Wrench,
-  Send, MessageCircle
+  Send, MessageCircle, ChevronDown
 } from "lucide-react";
-import { ROUTES } from "../utils/constants";
+import { ROUTES, BASE_URL } from "../utils/constants";
 import { bookingService } from "../services/bookingService";
 import { resourceService } from "../services/resourceService";
 import axiosInstance from "../services/axiosInstance";
@@ -1576,7 +1576,7 @@ function TicketsPanel() {
                       {selectedTicket.imageUrls.map((url, i) => (
                         <div key={i} className="group relative">
                           <img 
-                            src={`http://localhost:8080${url}`} 
+                            src={`${BASE_URL}${url}`} 
                             alt="Evidence" 
                             className="h-32 w-32 object-cover rounded-[1.5rem] border border-slate-200 shadow-lg transition-all group-hover:scale-105 group-hover:ring-8 group-hover:ring-blue-50 cursor-zoom-in" 
                           />
@@ -1766,11 +1766,17 @@ export default function AdminDashboardPage() {
   const standardCount = users.filter((u) => u.role === "USER" || u.role === "STUDENT").length;
   const totalUsers = users.length || 1;
 
+  const [bookingsStats, setBookingsStats] = useState([]);
+  const [loadingStats, setLoadingStats] = useState(true);
+
   useEffect(() => {
-    axiosInstance.get("/api/users")
-      .then(res => {
-        if (res.data && res.data.length > 0) {
-          const mapped = res.data.map(u => ({
+    const fetchData = async () => {
+      try {
+        setLoadingStats(true);
+        // Fetch Users
+        const usersRes = await axiosInstance.get("/api/users");
+        if (usersRes.data && usersRes.data.length > 0) {
+          const mapped = usersRes.data.map(u => ({
             id: u.id,
             name: u.fullName || u.email.split("@")[0],
             email: u.email,
@@ -1780,8 +1786,19 @@ export default function AdminDashboardPage() {
           }));
           setUsers(mapped);
         }
-      })
-      .catch(err => console.warn("Using mock users. Backend fetch failed:", err.message));
+
+        // Fetch All Bookings for Stats
+        const bRes = await bookingService.getAllBookings();
+        setBookingsStats(bRes || []);
+
+      } catch (err) {
+        console.warn("Backend fetch failed:", err.message);
+      } finally {
+        setLoadingStats(false);
+      }
+    };
+
+    fetchData();
   }, []);
 
   const generateUserTablePDF = () => {
@@ -2207,7 +2224,44 @@ export default function AdminDashboardPage() {
             {/* ─ Colorful Stats ─ */}
             {activeNav === "Overview" && (
               <div className="grid grid-cols-2 xl:grid-cols-4 gap-5">
-                {stats.map((s) => (
+                {[
+                  {
+                    label: "Total Users", 
+                    value: users.length.toLocaleString(), 
+                    change: `+${users.filter(u => u.joined === "Recently").length} recently`, 
+                    trend: "Verified",
+                    icon: Users,
+                    gradient: "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
+                    glow: "0 8px 30px rgba(59,130,246,0.35)",
+                  },
+                  {
+                    label: "Active Bookings", 
+                    value: bookingsStats.filter(b => b.status !== "REJECTED").length.toLocaleString(), 
+                    change: `${bookingsStats.filter(b => b.status === "APPROVED").length} Approved`, 
+                    trend: "Live",
+                    icon: BookOpen,
+                    gradient: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+                    glow: "0 8px 30px rgba(16,185,129,0.35)",
+                  },
+                  {
+                    label: "System Health", 
+                    value: "99.8%", 
+                    change: "Optimal", 
+                    trend: "Stable",
+                    icon: Activity,
+                    gradient: "linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)",
+                    glow: "0 8px 30px rgba(139,92,246,0.35)",
+                  },
+                  {
+                    label: "Pending Reviews", 
+                    value: bookingsStats.filter(b => b.status === "PENDING" || !b.status).length.toLocaleString(), 
+                    change: "Needs attention", 
+                    trend: "Priority",
+                    icon: Settings,
+                    gradient: "linear-gradient(135deg, #f59e0b 0%, #ea580c 100%)",
+                    glow: "0 8px 30px rgba(245,158,11,0.35)",
+                  },
+                ].map((s) => (
                   <div
                     key={s.label}
                     className="relative rounded-2xl p-5 overflow-hidden hover:scale-[1.02] transition-transform duration-200 cursor-default"
@@ -2227,9 +2281,9 @@ export default function AdminDashboardPage() {
                           {s.trend}
                         </span>
                       </div>
-                      <p className="text-3xl font-black text-white tracking-tight leading-none mb-1">{s.value}</p>
+                      <p className="text-3xl font-black text-white tracking-tight leading-none mb-1">{loadingStats ? "..." : s.value}</p>
                       <p className="text-sm font-bold text-white/80">{s.label}</p>
-                      <p className="text-xs text-white/55 mt-1">{s.change}</p>
+                      <p className="text-xs text-white/55 mt-1">{loadingStats ? "Calculating..." : s.change}</p>
                     </div>
                   </div>
                 ))}
