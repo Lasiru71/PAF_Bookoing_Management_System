@@ -55,7 +55,7 @@ The application consists of a React-based frontend and a Spring Boot REST API ba
 2. Run the application:
    mvn spring-boot:run
 3. Server will start on:
-   http://localhost:8080
+   http://localhost:8081
 
 ---
 
